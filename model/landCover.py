@@ -34,6 +34,10 @@ logger = logging.getLogger(__name__)
 import virtualOS as vos
 from ncConverter import *
 
+#%% ADDED BY JOREN: START
+import numpy as np
+#%% ADDED BY JOREN: STOP
+
 class LandCover(object):
 
     def __init__(self,iniItems,nameOfSectionInIniFile,soil_and_topo_parameters,landmask,irrigationEfficiency,usingAllocSegments = False):
@@ -145,9 +149,11 @@ class LandCover(object):
             vars(self)[var] = pcr.spatial(pcr.scalar(vars(self)[var]))
         
         #%%ADDED BY JOREN:START
-        input = iniItems.routingOptions[str('gradient')]
-        self.gradient = vos.readPCRmapClone(input,\
+        self.gradient = vos.readPCRmapClone(iniItems.routingOptions[str('gradient')],\
                          self.cloneMap,self.tmpDir,self.inputDir)
+        self.cellArea = vos.readPCRmapClone(\
+                  iniItems.routingOptions['cellAreaMap'],
+                  self.cloneMap,self.tmpDir,self.inputDir)
         
         try: self.highResolutionDEM = vos.readPCRmapClone(\
                                    iniItems.meteoDownscalingOptions['highResolutionDEM'],
@@ -1391,7 +1397,12 @@ class LandCover(object):
 
         snowTransport=True
         if snowTransport==True:
-            self.snowSlide(currTimeStep)
+            print(currTimeStep.day)
+            #Only Run Monthly?
+            if currTimeStep.day==1:
+                self.snowSlide(currTimeStep)
+        else:
+            logger.info('NO SnowSlide: who needs that anyway....?')
             
         
         # changes in snow cover: - melt ; + gain in snow or refreezing
@@ -1463,51 +1474,76 @@ class LandCover(object):
     def snowSlide(self, currTimeStep):
         #TO DO: Use slope including snow cover!
         def maxSWE(S, Smin=25, SS1=0.05, SS2=0.13):
-            SWE=SS1+100*np.exp(-SS2*(S)) 
-            SWE[S<Smin]=40
+            SWE=pcr.ifthenelse(S<Smin,40, SS1+100*pcr.exp(-SS2*(S)))
             return SWE
         
-        print(np.shape(self.gradient))
-        print(np.shape(self.snowCoverSWE))
-        print(np.shape(self.highResolutionDEM))
         
-        
-        print(type(self.gradient))
-        print(type(self.snowCoverSWE))
-        print(type(self.highResolutionDEM))
-        angle=np.rad2deg(np.arctan(self.gradient))
+        #TO DO:
+        #elevation=self.highResolutionDEM+self.snowCoverSWE
+        #gradient=pcr.slope(elevation) #NOT CORRECT: STILL NEEDS TO CORRECT FOR CHANGES IN DISTANCE!!
+        #angle=pcr.scalar(pcr.atan(gradient))
+        #To Do: Use as distance cell area divided by length of latitude cell?
         
         logger.info('Starting with SnowSlide: let\'s see how far we get....')
+        angle=pcr.scalar(pcr.atan(self.gradient))
         critSWE=maxSWE(angle)
-        for height in np.sort(highResolutionDEM.flatten())[::-1]:
-            locs=np.where(highResolutionDEM==height)
-            for i in range(len(locs[0])):
-                if self.snowCoverSWE[locs[0][i], locs[1][i]]>critSWE[locs[0][i], locs[1][i]]:
-                    deltaswe=self.snowCoverSWE[locs[0][i], locs[1][i]]-critSWE[locs[0][i], locs[1][i]]
-
-                    elevdiff=[]
-                    #Loop over neighbouring cells
-                    for xc in [-1, 0, 1]:
-                        for yc in [-1, 0, 1]:
-                            if (locs[0][i]+yc in range(0, np.shape(angle)[0])) & (locs[1][i]+xc in range(0, np.shape(angle)[1])):
-                                elevdiff+=[self.highResolutionDEM[locs[0][i]+yc, locs[1][i]+xc]-self.highResolutionDEM[locs[0][i], locs[1][i]]]
-                            else:
-                                elevdiff+=[0]
-                    elevdiff=np.asarray(elevdiff)
-                    elevdiff[elevdiff>0]=0
-                    reldiff=elevdiff/np.sum(elevdiff)
-
-                    #Loop over neighbouring cells
-                    j=0
-                    for xc in [-1, 0, 1]:
-                        for yc in [-1, 0, 1]:
-                            if (locs[0][i]+yc in range(0, np.shape(angle)[0])) & (locs[1][i]+xc in range(0, np.shape(angle)[1])):                                                      
-                                #Add snow cover based on steepness of slope
-                                self.snowCoverSWE[locs[0][i]+yc, locs[1][i]+xc]+=reldiff[j]*deltaswe                                                
-                            j+=1
-                    self.snowCoverSWE[locs[0][i], locs[1][i]]=critSWE[locs[0][i], locs[1][i]]        
-
+        deltaswe=pcr.max(self.snowCoverSWE-critSWE, 0.0)
+        #order=pcr.order(-1*self.highResolutionDEM)* pcr.scalar(deltaswe>
+        
+        logger.info('Converting to numpy....')
+        snowCoverSWE=pcr.pcr2numpy(self.snowCoverSWE, np.nan)
+        critSWE=pcr.pcr2numpy(critSWE, np.nan)
+        #gradient=pcr.pcr2numpy(self.gradient, np.nan)
+        cellArea=pcr.pcr2numpy(self.cellArea, np.nan)
+        highResolutionDEM=pcr.pcr2numpy(self.highResolutionDEM, np.nan)
+        deltaswe=pcr.pcr2numpy(deltaswe, np.nan)
+        logger.info('Finished converting to numpy....')
+        
+        #angle=np.rad2deg(np.arctan(gradient))
+        logger.info('Starting loop of loops....')
+        loops=0
+        while (np.sum(deltaswe)>0)&(loops<5):
+            relevant_dem=highResolutionDEM*(deltaswe>0)
+            for height in np.sort(np.unique(relevant_dem.flatten()))[::-1][:-1]:
+                locs=np.where(relevant_dem==height)
+                for i in range(len(locs[0])):
+                    if snowCoverSWE[locs[0][i], locs[1][i]]>critSWE[locs[0][i], locs[1][i]]:
+                        shape=np.shape(dem_np)
+                        elevdiff=highResolutionDEM[np.max([locs[0][i]-1,0]):np.min([locs[0][i]+2, shape[0]]), np.max([locs[1][i]-1,0]):np.min([locs[1][i]+2, shape[1]])]\
+                                 -highResolutionDEM[locs[0][i],locs[1][i]]
+                        elevdiff[elevdiff>0]=0
+                        reldiff=elevdiff/np.sum(elevdiff)
+                        snowCoverSWE[np.max([locs[0][i]-1,0]):np.min([locs[0][i]+2, shape[0]]), np.max([locs[1][i]-1,0]):np.min([locs[1][i]+2, shape[1]])]+=reldiff*deltaswe
+                        snowCoverSWE[locs[0][i], locs[1][i]]=critSWE[locs[0][i], locs[1][i]]  
     
+            deltaswe=swe-critSWE
+            deltaswe[deltaswe<0]=0
+            loops+=1
+            
+        #Convert back to pcraster
+        self.snowCoverSWE=pcr.numpy2pcr(pcr.Scalar, np.asarray(snowCoverSWE.tolist()), np.nan)       
+        logger.info('Finished with SnowSlide! Impressive..; needed {} loops..'.format(str(loops)))
+        
+    #~elevdiff=[]
+    #Loop over neighbouring cells
+    #~for xc in [-1, 0, 1]:
+    #~   for yc in [-1, 0, 1]:
+    #~        if (locs[0][i]+yc in range(0, np.shape(angle)[0])) & (locs[1][i]+xc in range(0, np.shape(angle)[1])):
+    #~            elevdiff+=[highResolutionDEM[locs[0][i]+yc, locs[1][i]+xc]-highResolutionDEM[locs[0][i], locs[1][i]]]
+    #~        else:
+    #~            elevdiff+=[0]
+    #~elevdiff=np.asarray(elevdiff)
+    #~elevdiff[elevdiff>0]=0
+    #~reldiff=elevdiff/np.sum(elevdiff)
+
+    #Loop over neighbouring cells
+    #~j=0
+    #~for xc in [-1, 0, 1]:
+    #~    for yc in [-1, 0, 1]:
+    #~        if (locs[0][i]+yc in range(0, np.shape(angle)[0])) & (locs[1][i]+xc in range(0, np.shape(angle)[1])):                                                      
+    #~            #Add snow cover based on steepness of slope; correct for possible changes in cell area.
+    #~            snowCoverSWE[locs[0][i]+yc, locs[1][i]+xc]+=(reldiff[j]*deltaswe)*(cellArea[locs[0][i], locs[1][i]]/cellArea[locs[0][i]+yc, locs[1][i]+xc])                                                
+    #~        j+=1
     #%%ADDED BY JOREN:STOP
     
     
