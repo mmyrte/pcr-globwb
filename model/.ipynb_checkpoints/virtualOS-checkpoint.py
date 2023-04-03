@@ -226,7 +226,7 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
                   #~ regridData2FinerGrid(factor,cropData,MV), \
                   #~ float(f.variables[varName]._FillValue))
 
-    # convert to PCR object and close f 
+    # convert to PCR object and close f
     if specificFillValue != None:
         outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(specificFillValue)), \
@@ -236,6 +236,7 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
             outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(f.variables[varName]._FillValue)), \
                   float(f.variables[varName]._FillValue))
+            
         except:
             outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(f.variables[varName].missing_value)), \
@@ -835,6 +836,10 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
 
         # get resampling factor
         factor = int(round(float(cellsizeInput)/float(cellsizeClone)))
+        print('Uitproberen0')
+        print(factor)
+        print(float(cellsizeInput))
+        print(float(cellsizeClone))
         if factor > 1: logger.debug('Resample: input cell size = '+str(float(cellsizeInput))+' ; output/clone cell size = '+str(float(cellsizeClone)))
 
 
@@ -2018,6 +2023,13 @@ def regridMapFile2FinerGrid (rescaleFac,coarse):
 def regridData2FinerGrid(rescaleFac,coarse,MV):
     if rescaleFac ==1:
         return coarse
+    print('Uitproberen1')
+    print(coarse)
+    print('Uitproberen2')
+    print(rescaleFac)
+    print('Uitproberen3')
+    print(MV)
+    
     nr,nc = np.shape(coarse)
     
     fine= np.zeros(nr*nc*rescaleFac*rescaleFac).reshape(nr*rescaleFac,nc*rescaleFac) + MV
@@ -2029,12 +2041,16 @@ def regridData2FinerGrid(rescaleFac,coarse,MV):
             if i % rescaleFac == 0:
                 ii += 1
             fine [i,:] = coarse[ii,:].repeat(rescaleFac)
-
+    
+    print('Uitproberen4')
+    print(fine)
+    
     nr = None; nc = None
     del nr; del nc
     nrF = None; ncF = None
     del nrF; del ncF
     n = gc.collect() ; del gc.garbage[:] ; n = None ; del n
+    print('Uitproberen5')
     return fine
 
 def regridToCoarse(fine,fac,mode,missValue):

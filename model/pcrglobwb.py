@@ -406,16 +406,19 @@ class PCRGlobWB(object):
     def totalLandWaterStores(self):
         # unit: m, not including surface water bodies
         
-        
+        #CHANGED BY JOREN: START
         if self.numberOfSoilLayers == 2: total = \
-                self.landSurface.interceptStor  +\
-                self.landSurface.snowFreeWater  +\
-                self.landSurface.snowCoverSWE   +\
-                self.landSurface.topWaterLayer  +\
-                self.landSurface.storUpp        +\
-                self.landSurface.storLow        +\
-                self.groundwater.storGroundwater
-
+                self.landSurface.interceptStor   +\
+                self.landSurface.snowFreeWater   +\
+                self.landSurface.snowCoverSWE    +\
+                self.landSurface.topWaterLayer   +\
+                self.landSurface.storUpp         +\
+                self.landSurface.storLow         +\
+                self.groundwater.storGroundwater +\
+                self.landSurface.glacierIce      +\
+                self.landSurface.glacierWater
+        #CHANGED BY JOREN: STOP
+        
         if self.numberOfSoilLayers == 3: total = \
                 self.landSurface.interceptStor  +\
                 self.landSurface.snowFreeWater  +\
@@ -449,13 +452,32 @@ class PCRGlobWB(object):
         runoff                  = pcr.ifthen(self.landmask, self.routing.runoff)
         nonFossilGroundwaterAbs = pcr.ifthen(self.landmask, self.groundwater.nonFossilGroundwaterAbs)   
         # 
-        vos.waterBalanceCheck([precipitation,surfaceWaterInf,irrGrossDemand],\
-                              [actualET,runoff,nonFossilGroundwaterAbs],\
+        
+        #ADDED  AND CHANGED BY JOREN: START
+        #TODO: ADD AN OPTION TO SWITCH BETWEEN NEW MODULE AND OLD MODULE
+        transportVolSnow=self.landSurface.transportVolSnow/self.routing.cellArea
+        incomingVolSnow=self.landSurface.incomingVolSnow/self.routing.cellArea
+        
+        vos.waterBalanceCheck([precipitation,surfaceWaterInf,irrGrossDemand, incomingVolSnow],\
+                              [actualET,runoff,nonFossilGroundwaterAbs, transportVolSnow],\
                               [storesAtBeginning],\
                               [storesAtEnd],\
                               'all stores (snow + interception + soil + groundwater), but except river/routing',\
                                True,\
                                self._modelTime.fulldate,threshold=1e-3)
+    
+        
+        #vos.waterBalanceCheck([precipitation,surfaceWaterInf,irrGrossDemand],\
+        #                      [actualET,runoff,nonFossilGroundwaterAbs],\
+        #                      [storesAtBeginning],\
+        #                      [storesAtEnd],\
+        #                      'all stores (snow + interception + soil + groundwater), but except river/routing',\
+        #                       True,\
+        #                       self._modelTime.fulldate,threshold=1e-3)
+        
+        #ADDED BY JOREN: STOP
+        
+        
     
     def read_forcings(self):
         logger.info("Reading forcings for time %s", self._modelTime)

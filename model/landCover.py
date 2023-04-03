@@ -36,6 +36,7 @@ from ncConverter import *
 
 #%% ADDED BY JOREN: START
 import numpy as np
+import glaciers as gl
 #%% ADDED BY JOREN: STOP
 
 class LandCover(object):
@@ -133,8 +134,8 @@ class LandCover(object):
 
         # get snow module type and its parameters:
         self.snowModuleType = self.iniItemsLC['snowModuleType']
-        
         #%% CHANGED BY JOREN: START
+        self.snowTransport = self.iniItemsLC['snowTransport']
         snowParams      = ['freezingT',
                            'degreeDayFactor',
                            'snowWaterHoldingCap',
@@ -149,14 +150,41 @@ class LandCover(object):
             vars(self)[var] = pcr.spatial(pcr.scalar(vars(self)[var]))
         
         #%%ADDED BY JOREN:START
+        
+        #Glacier Module
+        logger.info("Initialising Glacier...")
+        self.glacierized = vos.readPCRmapClone(\
+                  iniItems.landSurfaceOptions['glaciers'],
+                  self.cloneMap,self.tmpDir,self.inputDir)
+        
+        self.glacierIce=pcr.scalar(100)*self.glacierized
+        self.glacierWater=pcr.scalar(10)*self.glacierized
+        
+        
+        #Snow Slide Module        
+        logger.info("Initialising Snow Slide Module...")
         self.gradient = vos.readPCRmapClone(iniItems.routingOptions[str('gradient')],\
                          self.cloneMap,self.tmpDir,self.inputDir)
         self.cellArea = vos.readPCRmapClone(\
                   iniItems.routingOptions['cellAreaMap'],
                   self.cloneMap,self.tmpDir,self.inputDir)
         
+        
+        self.cellSizeInArcDeg = vos.getMapAttributes(self.cloneMap,"cellsize")  
+        cellSizeInArcMin    =  self.cellSizeInArcDeg*60.
+        self.verticalSizeInMeter =  cellSizeInArcMin*1852.  
+        
+        self.zonalDistance=self.cellArea/self.verticalSizeInMeter
+        self.verticalSizeInMeter=float(self.verticalSizeInMeter)
+        
+        
+        self.lddMap = vos.readPCRmapClone(iniItems.routingOptions['lddMap'],\
+                                        self.cloneMap,self.tmpDir,self.inputDir,True)
+        self.lddMap = pcr.lddrepair(pcr.ldd(self.lddMap))
+        self.lddMap = pcr.lddrepair(self.lddMap)
+        
         try: self.highResolutionDEM = vos.readPCRmapClone(\
-                                   iniItems.meteoDownscalingOptions['highResolutionDEM'],
+                            iniItems.meteoDownscalingOptions['highResolutionDEM'],
                                    self.cloneMap,self.tmpDir,self.inputDir)
         except: self.highResolutionDEM = vos.readPCRmapClone(\
                                    iniItems.meteoOptions['highResolutionDEM'],
@@ -991,6 +1019,7 @@ class LandCover(object):
         #%% ADDED BY JOREN: START
         elif self.snowModuleType  == "Alpine": self.snowMeltSlaterAndClark(meteo,currTimeStep)
         #%% ADDED BY JOREN: STOP
+            
         
         # calculate qDR & qSF & q23 (and update storages)
         self.upperSoilUpdate(meteo, \
@@ -1390,17 +1419,34 @@ class LandCover(object):
     #%%ADDED BY JOREN: START
     def snowMeltSlaterAndClark(self, meteo,currTimeStep):
         logger.info('Using Snow Melt with Seasonal Cycle.')
+        
+        glacierModule=True
+        
         if self.debugWaterBalance:
-            prevStates        = [self.snowCoverSWE,self.snowFreeWater]
-            prevSnowCoverSWE  = self.snowCoverSWE
-            prevSnowFreeWater = self.snowFreeWater
-
-        snowTransport=True
-        if snowTransport==True:
-            print(currTimeStep.day)
+            if glacierModule==True:
+                prevStates        = [self.snowCoverSWE,self.snowFreeWater, self.glacierIce, self.glacierWater]
+                prevSnowCoverSWE  = self.snowCoverSWE
+                prevSnowFreeWater = self.snowFreeWater
+                prevGlacierModule = [self.glacierIce, self.glacierWater]
+                prevGlacierWater  = self.glacierWater
+                prevGlacierIce    = self.glacierIce
+                
+            else:
+                prevStates        = [self.snowCoverSWE,self.snowFreeWater]
+                prevSnowCoverSWE  = self.snowCoverSWE
+                prevSnowFreeWater = self.snowFreeWater
+                
+                
+        if self.snowTransport=='Basic':
             #Only Run Monthly?
-            if currTimeStep.day==1:
+            self.snowSlideBasic(currTimeStep)
+            
+        elif self.snowTransport=='Complete':
+            if (currTimeStep.day==1) or (currTimeStep.day==15):
                 self.snowSlide(currTimeStep)
+            else:
+                self.transportVolSnow=pcr.scalar(0.0)
+                self.incomingVolSnow=pcr.scalar(0.0)
         else:
             logger.info('NO SnowSlide: who needs that anyway....?')
             
@@ -1418,14 +1464,26 @@ class LandCover(object):
 
         # for reporting snow melt in m/day
         self.snowMelt = pcr.ifthenelse(deltaSnowCover < 0.0, deltaSnowCover * pcr.scalar(-1.0), pcr.scalar(0.0))
-
+        
+        #Glacier Module!
+        
+        if glacierModule==True:
+            self.deltaSnowCover=deltaSnowCover
+            gl.updateStaticGlacier(self, meteo, currTimeStep)
+            deltaSnowCover=self.deltaSnowCover
+        
+            self.netLqWaterToSoil = pcr.max(0., self.snowFreeWater - \
+                     self.snowWaterHoldingCap * self.snowCoverSWE)
+            
+            self.netLqWaterToSoil=self.netLqWaterToSoil+self.netGlacierWaterToSoil
+            
         # update snowFreeWater = liquid water stored above snowCoverSWE
-        self.snowFreeWater = self.snowFreeWater - deltaSnowCover + \
-                             self.liquidPrecip                          # SCF_L[TYPE] = SCF_L[TYPE]-DSC[TYPE]+PRP;
-                                     
-        # netLqWaterToSoil = net liquid transferred to soil
-        self.netLqWaterToSoil = pcr.max(0., self.snowFreeWater - \
-                 self.snowWaterHoldingCap * self.snowCoverSWE)          # Pn = max(0,SCF_L[TYPE]-CWH*SC_L[TYPE])
+        else:
+            self.snowFreeWater = self.snowFreeWater - deltaSnowCover + \
+                                 self.liquidPrecip                          # SCF_L[TYPE] = SCF_L[TYPE]-DSC[TYPE]+PRP;                       
+            # netLqWaterToSoil = net liquid transferred to soil
+            self.netLqWaterToSoil = pcr.max(0., self.snowFreeWater - \
+                     self.snowWaterHoldingCap * self.snowCoverSWE)          # Pn = max(0,SCF_L[TYPE]-CWH*SC_L[TYPE])
         
         # update snowFreeWater (after netLqWaterToSoil) 
         self.snowFreeWater    = pcr.max(0., self.snowFreeWater - \
@@ -1447,104 +1505,204 @@ class LandCover(object):
         self.actualET += self.actSnowFreeWaterEvap                      # EACT_L[TYPE]= EACT_L[TYPE]+ES_a[TYPE];
 
         if self.debugWaterBalance:
-            vos.waterBalanceCheck([self.snowfall, self.liquidPrecip],
-                                  [self.netLqWaterToSoil,\
-                                   self.actSnowFreeWaterEvap],
-                                   prevStates,\
-                                  [self.snowCoverSWE, self.snowFreeWater],\
-                                  'snow module',\
-                                   True,\
-                                   currTimeStep.fulldate,threshold=1e-4)
-            vos.waterBalanceCheck([self.snowfall, deltaSnowCover],\
-                                  [pcr.scalar(0.0)],\
-                                  [prevSnowCoverSWE],\
-                                  [self.snowCoverSWE],\
-                                  'snowCoverSWE',\
-                                   True,\
-                                   currTimeStep.fulldate,threshold=5e-4)
-            vos.waterBalanceCheck([self.liquidPrecip],
-                                  [deltaSnowCover, self.actSnowFreeWaterEvap, self.netLqWaterToSoil],
-                                  [prevSnowFreeWater],\
-                                  [self.snowFreeWater],\
-                                  'snowFreeWater',\
-                                   True,\
-                                   currTimeStep.fulldate,threshold=5e-4)
+            if self.snowTransport=='Complete' or self.snowTransport=='Basic':
+                logger.info('WBCHECK including SnowTransport: '+self.snowTransport)
+                if glacierModule==True:
+                    logger.info('WBCHECK including GlacierModule')
+                    
+                vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea],
+                                      [self.netLqWaterToSoil,\
+                                       self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea, self.glacierOutflow, self.netGlacierWaterToSoil],
+                                       prevStates,\
+                                      [self.snowCoverSWE, self.snowFreeWater, self.glacierIce, self.glacierWater],\
+                                      'snow module',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=1e-4)
+                
+                vos.waterBalanceCheck([self.snowfall, deltaSnowCover, self.incomingVolSnow/self.cellArea],\
+                                      [self.transportVolSnow/self.cellArea, self.glacierAccummulation],\
+                                      [prevSnowCoverSWE],\
+                                      [self.snowCoverSWE],\
+                                      'snowCoverSWE',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+                
+                vos.waterBalanceCheck([self.liquidPrecip-self.rain2GlacierWater, self.glacierOutflow, -1*deltaSnowCover],
+                                      [self.actSnowFreeWaterEvap, self.netLqWaterToSoil-self.netGlacierWaterToSoil, self.snow2GlacierWater, self.capacity2GlacierWater],
+                                      [prevSnowFreeWater],\
+                                      [self.snowFreeWater],\
+                                      'snowFreeWater',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+                
+                vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.glacierAccummulation, self.capacity2GlacierWater],
+                                      [self.glacierOutflow, self.netGlacierWaterToSoil],
+                                      prevGlacierModule,\
+                                      [self.glacierIce, self.glacierWater],\
+                                      'glacierModule',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+                
+                vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.iceMelt, self.capacity2GlacierWater],
+                                      [self.glacierOutflow, self.netGlacierWaterToSoil],
+                                      [prevGlacierWater],\
+                                      [self.glacierWater],\
+                                      'glacierWater',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+                
+                vos.waterBalanceCheck([self.glacierAccummulation],
+                                      [self.iceMelt],
+                                      [prevGlacierIce],\
+                                      [self.glacierIce],\
+                                      'glacierIce',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+                
+            else:
+                vos.waterBalanceCheck([self.snowfall, self.liquidPrecip],
+                                      [self.netLqWaterToSoil,\
+                                       self.actSnowFreeWaterEvap],
+                                       prevStates,\
+                                      [self.snowCoverSWE, self.snowFreeWater],\
+                                      'snow module',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=1e-4)
+                vos.waterBalanceCheck([self.snowfall, deltaSnowCover],\
+                                      [pcr.scalar(0.0)],\
+                                      [prevSnowCoverSWE],\
+                                      [self.snowCoverSWE],\
+                                      'snowCoverSWE',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+                vos.waterBalanceCheck([self.liquidPrecip],
+                                      [deltaSnowCover, self.actSnowFreeWaterEvap, self.netLqWaterToSoil],
+                                      [prevSnowFreeWater],\
+                                      [self.snowFreeWater],\
+                                      'snowFreeWater',\
+                                       True,\
+                                       currTimeStep.fulldate,threshold=5e-4)
+    
+    def snowSlideBasic(self, currTimeStep):
+        logger.info('Starting with SnowSlide BASIC: let\'s see how far we get....')
+        angle=pcr.scalar(pcr.atan(self.gradient))
+        critSWE=self.maxSWE(angle)
+        
+        self.transportVolSnow=pcr.max((self.snowCoverSWE-critSWE)*self.cellArea, 0.0)
+        
+        #Convert everything to volumes
+        snowCoverSWEVol = pcr.accuthresholdstate(self.lddMap, self.snowCoverSWE*self.cellArea, critSWE*self.cellArea)
+        
+        self.incomingVolSnow= pcr.max(snowCoverSWEVol-self.snowCoverSWE*self.cellArea, 0.0)
+        
+        self.snowCoverSWE = snowCoverSWEVol/self.cellArea
+        logger.info('Finished with SnowSlide BASIC! Not so impressive..')
     
     
     def snowSlide(self, currTimeStep):
-        #TO DO: Use slope including snow cover!
-        def maxSWE(S, Smin=25, SS1=0.05, SS2=0.13):
-            SWE=pcr.ifthenelse(S<Smin,40, SS1+100*pcr.exp(-SS2*(S)))
+        logger.info('Starting with SnowSlide: let\'s see how far we get....')
+        logger.info('Converting to numpy....')
+        
+        elevation=self.highResolutionDEM+self.snowCoverSWE
+        elevation=pcr.pcr2numpy(elevation, np.nan)
+        snowCoverSWE=pcr.pcr2numpy(self.snowCoverSWE, np.nan)
+        zonalDistance=pcr.pcr2numpy(self.zonalDistance, np.nan)
+        cellArea=pcr.pcr2numpy(self.cellArea, np.nan)
+        
+        print(np.nansum(snowCoverSWE))
+        print(np.nansum(snowCoverSWE*cellArea))
+        
+        
+        logger.info('Finished converting to numpy....')
+        logger.info('Compute new gradient....')
+        
+        yslope=abs((elevation[2:,:]-elevation[:-2,:])/(2*self.verticalSizeInMeter))
+        y_lower=abs((elevation[1,:]-elevation[0,:])/(self.verticalSizeInMeter))
+        y_upper=abs((elevation[-1,:]-elevation[-2,:])/(self.verticalSizeInMeter))
+        yslope=np.vstack((y_lower, yslope, y_upper))
+    
+        dx=zonalDistance[:,0:1]
+        xslope=abs((elevation[:,2:]-elevation[:,:-2])/(2*dx))
+        x_left=np.expand_dims(abs((elevation[:,1]-elevation[:,0])/(dx[:,0])),axis=1)
+        x_right=np.expand_dims(abs((elevation[:,-1]-elevation[:,-2])/(dx[:,-1])),axis=1)
+        xslope=np.hstack((x_left, xslope, x_right))
+        slope=np.sqrt(yslope**2+xslope**2)
+        angle=np.rad2deg(np.arctan(slope))
+        
+
+        def maxSWE(S, Smin=25, SS1=250, SS2=0.172):
+            SWE=SS1*np.exp(-SS2*(S)) 
+            SWE[S<Smin]=5
             return SWE
         
-        
-        #TO DO:
-        #elevation=self.highResolutionDEM+self.snowCoverSWE
-        #gradient=pcr.slope(elevation) #NOT CORRECT: STILL NEEDS TO CORRECT FOR CHANGES IN DISTANCE!!
-        #angle=pcr.scalar(pcr.atan(gradient))
-        #To Do: Use as distance cell area divided by length of latitude cell?
-        
-        logger.info('Starting with SnowSlide: let\'s see how far we get....')
-        angle=pcr.scalar(pcr.atan(self.gradient))
+        logger.info('Compute critical snow level.....')
         critSWE=maxSWE(angle)
-        deltaswe=pcr.max(self.snowCoverSWE-critSWE, 0.0)
-        #order=pcr.order(-1*self.highResolutionDEM)* pcr.scalar(deltaswe>
-        
-        logger.info('Converting to numpy....')
-        snowCoverSWE=pcr.pcr2numpy(self.snowCoverSWE, np.nan)
-        critSWE=pcr.pcr2numpy(critSWE, np.nan)
-        #gradient=pcr.pcr2numpy(self.gradient, np.nan)
-        cellArea=pcr.pcr2numpy(self.cellArea, np.nan)
-        highResolutionDEM=pcr.pcr2numpy(self.highResolutionDEM, np.nan)
-        deltaswe=pcr.pcr2numpy(deltaswe, np.nan)
-        logger.info('Finished converting to numpy....')
-        
-        #angle=np.rad2deg(np.arctan(gradient))
+        transportVolSnow=(snowCoverSWE-critSWE)*cellArea #Convert to volume
+        transportVolSnow[transportVolSnow<0]=0
         logger.info('Starting loop of loops....')
         loops=0
-        while (np.sum(deltaswe)>0)&(loops<5):
-            relevant_dem=highResolutionDEM*(deltaswe>0)
+        
+        shape=np.shape(elevation)
+        incomingVolSnow=np.zeros(shape)
+        
+        #Create a variable to store the total transport...
+        incomingVolSnowTotal=np.zeros(shape)
+        transportVolSnowTotal=np.zeros(shape)
+        
+        #Limit locations that we look at
+        while (np.sum(transportVolSnow)>0)&(loops<5):
+            relevant_dem=elevation*(transportVolSnow>0)
             for height in np.sort(np.unique(relevant_dem.flatten()))[::-1][:-1]:
                 locs=np.where(relevant_dem==height)
                 for i in range(len(locs[0])):
-                    if snowCoverSWE[locs[0][i], locs[1][i]]>critSWE[locs[0][i], locs[1][i]]:
-                        shape=np.shape(dem_np)
-                        elevdiff=highResolutionDEM[np.max([locs[0][i]-1,0]):np.min([locs[0][i]+2, shape[0]]), np.max([locs[1][i]-1,0]):np.min([locs[1][i]+2, shape[1]])]\
-                                 -highResolutionDEM[locs[0][i],locs[1][i]]
-                        elevdiff[elevdiff>0]=0
-                        reldiff=elevdiff/np.sum(elevdiff)
-                        snowCoverSWE[np.max([locs[0][i]-1,0]):np.min([locs[0][i]+2, shape[0]]), np.max([locs[1][i]-1,0]):np.min([locs[1][i]+2, shape[1]])]+=reldiff*deltaswe
-                        snowCoverSWE[locs[0][i], locs[1][i]]=critSWE[locs[0][i], locs[1][i]]  
-    
-            deltaswe=swe-critSWE
-            deltaswe[deltaswe<0]=0
-            loops+=1
-            
-        #Convert back to pcraster
-        self.snowCoverSWE=pcr.numpy2pcr(pcr.Scalar, np.asarray(snowCoverSWE.tolist()), np.nan)       
-        logger.info('Finished with SnowSlide! Impressive..; needed {} loops..'.format(str(loops)))
-        
-    #~elevdiff=[]
-    #Loop over neighbouring cells
-    #~for xc in [-1, 0, 1]:
-    #~   for yc in [-1, 0, 1]:
-    #~        if (locs[0][i]+yc in range(0, np.shape(angle)[0])) & (locs[1][i]+xc in range(0, np.shape(angle)[1])):
-    #~            elevdiff+=[highResolutionDEM[locs[0][i]+yc, locs[1][i]+xc]-highResolutionDEM[locs[0][i], locs[1][i]]]
-    #~        else:
-    #~            elevdiff+=[0]
-    #~elevdiff=np.asarray(elevdiff)
-    #~elevdiff[elevdiff>0]=0
-    #~reldiff=elevdiff/np.sum(elevdiff)
+                    #Get Coordinates of surrounding cells (watch out for edges)
+                    ycenter=locs[0][i]
+                    xcenter=locs[1][i]
 
-    #Loop over neighbouring cells
-    #~j=0
-    #~for xc in [-1, 0, 1]:
-    #~    for yc in [-1, 0, 1]:
-    #~        if (locs[0][i]+yc in range(0, np.shape(angle)[0])) & (locs[1][i]+xc in range(0, np.shape(angle)[1])):                                                      
-    #~            #Add snow cover based on steepness of slope; correct for possible changes in cell area.
-    #~            snowCoverSWE[locs[0][i]+yc, locs[1][i]+xc]+=(reldiff[j]*deltaswe)*(cellArea[locs[0][i], locs[1][i]]/cellArea[locs[0][i]+yc, locs[1][i]+xc])                                                
-    #~        j+=1
-    #%%ADDED BY JOREN:STOP
+                    ymin=np.max([ycenter-1,0])
+                    ymax=np.min([ycenter+2, shape[0]])
+
+                    xmin=np.max([xcenter-1,0])
+                    xmax=np.min([xcenter+2, shape[1]])
+
+                    #Compute elevation difference with surrounding cells
+                    elevdiff=elevation[ymin:ymax, xmin:xmax]\
+                             -elevation[ycenter,xcenter]
+                    elevdiff[elevdiff>0]=0
+                    reldiff=elevdiff/np.sum(elevdiff)
+
+                    #Add the incoming SWE
+                    incomingVolSnow[ymin:ymax, xmin:xmax]+=reldiff*transportVolSnow[ycenter,xcenter]              
+
+            
+            #Add the new fluxes to the older fluxes
+            incomingVolSnowTotal+=incomingVolSnow
+            transportVolSnowTotal+=transportVolSnow
+            
+            #Update snow cover for this timestep
+            snowCoverSWE+=incomingVolSnow/cellArea
+            snowCoverSWE-=transportVolSnow/cellArea
+            
+            #Compute new fluxes for next loop
+            transportVolSnow=(snowCoverSWE-critSWE)*cellArea
+            transportVolSnow[transportVolSnow<0]=0
+            incomingVolSnow=np.zeros(shape)
+            loops+=1
+
+        #Convert back to pcraster
+        self.snowCoverSWE=pcr.numpy2pcr(pcr.Scalar, np.asarray(snowCoverSWE.tolist()), np.nan)
+        self.transportVolSnow=pcr.numpy2pcr(pcr.Scalar, np.asarray(transportVolSnowTotal.tolist()), np.nan)
+        self.incomingVolSnow=pcr.numpy2pcr(pcr.Scalar, np.asarray(incomingVolSnowTotal.tolist()), np.nan)
+        
+        #INPUT IS DAN WEER ANDERS?
+        
+        logger.info('Finished with SnowSlide! Impressive.. Number of loops:' +str(loops))
+     
+    def maxSWE(self, S, Smin=25, SS1=0.05, SS2=0.13):
+            SWE=pcr.ifthenelse(S<Smin,5, SS1+100*pcr.exp(-SS2*(S)))
+            return SWE
+
+        #%%ADDED BY JOREN:STOP
     
     
     def snowMeltHBVSimple(self,meteo,currTimeStep):

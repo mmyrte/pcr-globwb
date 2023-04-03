@@ -56,7 +56,13 @@ class LandSurface(object):
                   self.landCoverObj[coverType].storLow
                 result[coverType]['interflow'    ] = \
                   self.landCoverObj[coverType].interflow
-
+                #ADDED BY JOREN: START
+                result[coverType]['glacierIce'] = \
+                  self.landCoverObj[coverType].glacierIce
+                result[coverType]['glacierWater'] = \
+                  self.landCoverObj[coverType].glacierWater
+                #ADDED BY JOREN: STOP
+                
         if self.numberOfSoilLayers == 3:
             for coverType in self.coverTypes:
                 result[coverType] = {}
@@ -89,6 +95,11 @@ class LandSurface(object):
             result['topWaterLayer'] = self.topWaterLayer
             result['storUpp']       = self.storUpp
             result['storLow']       = self.storLow
+            
+            #ADDED BY JOREN: START
+            result['glacierIce'] = self.glacierIce
+            result['glacierWater'] = self.glacierWater
+            #ADDED BY JOREN: STOP
 
         if self.numberOfSoilLayers == 3:
             result['interceptStor'] = self.interceptStor
@@ -132,6 +143,11 @@ class LandSurface(object):
                            'snowCoverSWE' ,\
                            'snowFreeWater',\
                            'topWaterLayer']
+        
+        #ADDED BY JOREN: START
+        self.mainStates   +=['glacierIce', 'glacierWater']
+        #ADDED BY JOREN: STOP
+        
         #
         # state variables (unit: m)
         self.stateVars = ['storUppTotal',
@@ -182,6 +198,12 @@ class LandSurface(object):
                           'livestockWaterWithdrawal',
                           'nonIrrReturnFlow',
                           'irrigationTranspirationDeficit']
+        
+        #ADDED BY JOREN: START
+        self.fluxVars   +=['incomingVolSnow', 'transportVolSnow', 'glacierOutflow']
+        #ADDED BY JOREN: STOP
+        
+        
         #
         # specific variables for 2 and 3 layer soil models:
         #
@@ -1446,11 +1468,16 @@ class LandSurface(object):
                      self.landCoverObj[coverType].fracVegCover * vars(self.landCoverObj[coverType])[var]
                      
         # total storages (unit: m3) in the entire landSurface module
+        #CHANGED BY JOREN: START
         if self.numberOfSoilLayers == 2: self.totalSto = \
                         self.snowCoverSWE + self.snowFreeWater + self.interceptStor +\
                         self.topWaterLayer +\
                         self.storUpp +\
-                        self.storLow
+                        self.storLow +\
+                        self.glacierIce +\
+                        self.glacierWater
+        #CHANGED BY JOREN: STOP
+        
         #
         if self.numberOfSoilLayers == 3: self.totalSto = \
                         self.snowCoverSWE + self.snowFreeWater + self.interceptStor +\
