@@ -458,8 +458,11 @@ class PCRGlobWB(object):
         transportVolSnow=self.landSurface.transportVolSnow/self.routing.cellArea
         incomingVolSnow=self.landSurface.incomingVolSnow/self.routing.cellArea
         
-        vos.waterBalanceCheck([precipitation,surfaceWaterInf,irrGrossDemand, incomingVolSnow],\
-                              [actualET,runoff,nonFossilGroundwaterAbs, transportVolSnow],\
+        glacierIncoming=self.landSurface.glacierIncoming/self.routing.cellArea
+        glacierOutgoing=self.landSurface.glacierOutgoing/self.routing.cellArea
+        
+        vos.waterBalanceCheck([precipitation,surfaceWaterInf,irrGrossDemand, incomingVolSnow, glacierIncoming],\
+                              [actualET,runoff,nonFossilGroundwaterAbs, transportVolSnow, glacierOutgoing],\
                               [storesAtBeginning],\
                               [storesAtEnd],\
                               'all stores (snow + interception + soil + groundwater), but except river/routing',\

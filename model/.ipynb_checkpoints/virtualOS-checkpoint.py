@@ -836,10 +836,7 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
 
         # get resampling factor
         factor = int(round(float(cellsizeInput)/float(cellsizeClone)))
-        print('Uitproberen0')
-        print(factor)
-        print(float(cellsizeInput))
-        print(float(cellsizeClone))
+    
         if factor > 1: logger.debug('Resample: input cell size = '+str(float(cellsizeInput))+' ; output/clone cell size = '+str(float(cellsizeClone)))
 
 
@@ -852,7 +849,7 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
         #~ outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   #~ regridData2FinerGrid(factor,cropData,MV), \
                   #~ float(f.variables[varName]._FillValue))
-
+    
 
     # convert to PCR object and close f 
     if specificFillValue != None:
@@ -860,6 +857,13 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
                   regridData2FinerGrid(factor, cropData, float(specificFillValue)), \
                   float(specificFillValue))
     else:
+        
+        
+        outPCR = pcr.numpy2pcr(pcr.Scalar, \
+                  regridData2FinerGrid(factor, cropData, float(f.variables[varName]._FillValue)), \
+                  float(f.variables[varName]._FillValue))
+        
+        
         try:
             outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(f.variables[varName]._FillValue)), \
@@ -868,7 +872,6 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
             outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(f.variables[varName].missing_value)), \
                   float(f.variables[varName].missing_value))
-
     #~ pcr.aguila(outPCR)
     
     #f.close();
@@ -2023,18 +2026,14 @@ def regridMapFile2FinerGrid (rescaleFac,coarse):
 def regridData2FinerGrid(rescaleFac,coarse,MV):
     if rescaleFac ==1:
         return coarse
-    print('Uitproberen1')
-    print(coarse)
-    print('Uitproberen2')
-    print(rescaleFac)
-    print('Uitproberen3')
-    print(MV)
     
     nr,nc = np.shape(coarse)
     
     fine= np.zeros(nr*nc*rescaleFac*rescaleFac).reshape(nr*rescaleFac,nc*rescaleFac) + MV
     
- 
+    print('Uitproberen1')
+    print(fine)
+    
     ii = -1
     nrF,ncF = np.shape(fine)
     for i in range(0 , nrF):
@@ -2042,15 +2041,22 @@ def regridData2FinerGrid(rescaleFac,coarse,MV):
                 ii += 1
             fine [i,:] = coarse[ii,:].repeat(rescaleFac)
     
-    print('Uitproberen4')
+    print('Uitproberen2')
     print(fine)
+    
+    print('Uitproberen3')
+    print(gc.collect())
+    print(gc.garbage[:])
     
     nr = None; nc = None
     del nr; del nc
     nrF = None; ncF = None
     del nrF; del ncF
     n = gc.collect() ; del gc.garbage[:] ; n = None ; del n
-    print('Uitproberen5')
+    
+    print('Uitproberen4')
+    print(fine)
+    
     return fine
 
 def regridToCoarse(fine,fac,mode,missValue):
