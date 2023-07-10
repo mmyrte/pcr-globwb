@@ -1658,18 +1658,15 @@ class LandCover(object):
                 
         
         if self.debugWaterBalance:
-            if self.snowTransport=='Complete' or self.snowTransport=='Basic' or self.snowTransport=='FreyAndHolzmann' or self.snowTransport=='FreyAndHolzmann_pcraster':
-                logger.info('WBCHECK including SnowTransport: '+self.snowTransport)
-                
-                if self.glacierModule==True:
-                    logger.info('WBCHECK including GlacierModule')
-                    if self.glacierType=='Static':
-                        self.glacierOutgoing=pcr.scalar(0)
-                        self.glacierIncoming=self.glacierDifference
-                    else:
-                        self.glacierOutgoing=pcr.scalar(0)
-                        self.glacierIncoming=pcr.scalar(0)
+            if self.glacierModule==True:
+                logger.info('WBCHECK including GlacierModule')
+                if self.glacierType=='Static':
+                    self.glacierOutgoing=pcr.scalar(0)
+                    self.glacierIncoming=self.glacierDifference
                 else:
+                    self.glacierOutgoing=pcr.scalar(0)
+                    self.glacierIncoming=pcr.scalar(0)
+            else:
                     logger.info('WBCHECK NO GlacierModule')
                     self.glacierIce=pcr.scalar(0)
                     self.glacierWater=pcr.scalar(0)
@@ -1685,42 +1682,47 @@ class LandCover(object):
                     
                     self.glacierOutgoing=pcr.scalar(0)
                     self.glacierIncoming=pcr.scalar(0)
+                        
+            if self.snowTransport=='Complete' or self.snowTransport=='Basic' or self.snowTransport=='FreyAndHolzmann' or self.snowTransport=='FreyAndHolzmann_pcraster':
+                logger.info('WBCHECK including SnowTransport: '+self.snowTransport)
+            else:
+                logger.info('WBCHECK including SnowTransport: '+self.snowTransport)
+                self.incomingVolSnow=pcr.scalar(0)
+                self.transportVolSnow=pcr.scalar(0)
                 
-                    
-                    
-                vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea, self.glacierIncoming/self.cellArea],
-                                      [self.netLqWaterToSoil,\
-                                       self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea, self.glacierOutflow, self.glacierOutgoing/self.cellArea],
-                                       prevStates,\
-                                      [self.snowCoverSWE, self.snowFreeWater, self.glacierIce, self.glacierWater],\
-                                      'snow module',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
-                
-                vos.waterBalanceCheck([self.snowfall, deltaSnowCover, self.incomingVolSnow/self.cellArea],\
-                                      [self.transportVolSnow/self.cellArea, self.glacierAccummulation],\
-                                      [prevSnowCoverSWE],\
-                                      [self.snowCoverSWE],\
-                                      'snowCoverSWE',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
-                
-                vos.waterBalanceCheck([self.liquidPrecip-self.rain2GlacierWater, -1*deltaSnowCover],
-                                      [self.actSnowFreeWaterEvap, self.netLqWaterToSoil-self.netGlacierWaterToSoil, self.snow2GlacierWater, self.capacity2GlacierWater],
-                                      [prevSnowFreeWater],\
-                                      [self.snowFreeWater],\
-                                      'snowFreeWater',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
+            vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea, self.glacierIncoming/self.cellArea],
+                                  [self.netLqWaterToSoil,\
+                                   self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea, self.glacierOutflow, self.glacierOutgoing/self.cellArea],
+                                   prevStates,\
+                                  [self.snowCoverSWE, self.snowFreeWater, self.glacierIce, self.glacierWater],\
+                                  'snow module',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
 
-                
-                vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.glacierAccummulation, self.capacity2GlacierWater, self.glacierIncoming/self.cellArea],
-                                      [self.glacierOutflow, self.netGlacierWaterToSoil, self.glacierOutgoing/self.cellArea],
-                                      prevGlacierModule,\
-                                      [self.glacierIce, self.glacierWater],\
-                                      'glacierModule',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
+            vos.waterBalanceCheck([self.snowfall, deltaSnowCover, self.incomingVolSnow/self.cellArea],\
+                                  [self.transportVolSnow/self.cellArea, self.glacierAccummulation],\
+                                  [prevSnowCoverSWE],\
+                                  [self.snowCoverSWE],\
+                                  'snowCoverSWE',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
+
+            vos.waterBalanceCheck([self.liquidPrecip-self.rain2GlacierWater, -1*deltaSnowCover],
+                                  [self.actSnowFreeWaterEvap, self.netLqWaterToSoil-self.netGlacierWaterToSoil, self.snow2GlacierWater, self.capacity2GlacierWater],
+                                  [prevSnowFreeWater],\
+                                  [self.snowFreeWater],\
+                                  'snowFreeWater',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
+
+
+            vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.glacierAccummulation, self.capacity2GlacierWater, self.glacierIncoming/self.cellArea],
+                                  [self.glacierOutflow, self.netGlacierWaterToSoil, self.glacierOutgoing/self.cellArea],
+                                  prevGlacierModule,\
+                                  [self.glacierIce, self.glacierWater],\
+                                  'glacierModule',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
                 
                 #rain2GlacierWater=pcr.pcr2numpy(self.rain2GlacierWater, np.nan)
                 #np.save('/hyclimm/gjanzing/data/rain2GlacierWater.npy', rain2GlacierWater)
@@ -1762,45 +1764,45 @@ class LandCover(object):
                 #np.save('/hyclimm/gjanzing/data/prevGlacierIce.npy', prevGlacierIce_test)
                 
                 
-                vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.iceMelt, self.capacity2GlacierWater],
-                                      [self.glacierOutflow, self.netGlacierWaterToSoil],
-                                      [prevGlacierWater],\
-                                      [self.glacierWater],\
-                                      'glacierWater',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
+            vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.iceMelt, self.capacity2GlacierWater],
+                                  [self.glacierOutflow, self.netGlacierWaterToSoil],
+                                  [prevGlacierWater],\
+                                  [self.glacierWater],\
+                                  'glacierWater',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
+
+            vos.waterBalanceCheck([self.glacierAccummulation, self.glacierIncoming/self.cellArea],
+                                  [self.iceMelt, self.glacierOutgoing/self.cellArea],
+                                  [prevGlacierIce],\
+                                  [self.glacierIce],\
+                                  'glacierIce',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
                 
-                vos.waterBalanceCheck([self.glacierAccummulation, self.glacierIncoming/self.cellArea],
-                                      [self.iceMelt, self.glacierOutgoing/self.cellArea],
-                                      [prevGlacierIce],\
-                                      [self.glacierIce],\
-                                      'glacierIce',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
-                
-            else:
-                vos.waterBalanceCheck([self.snowfall, self.liquidPrecip],
-                                      [self.netLqWaterToSoil,\
-                                       self.actSnowFreeWaterEvap],
-                                       prevStates,\
-                                      [self.snowCoverSWE, self.snowFreeWater],\
-                                      'snow module',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=1e-4)
-                vos.waterBalanceCheck([self.snowfall, deltaSnowCover],\
-                                      [pcr.scalar(0.0)],\
-                                      [prevSnowCoverSWE],\
-                                      [self.snowCoverSWE],\
-                                      'snowCoverSWE',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=5e-4)
-                vos.waterBalanceCheck([self.liquidPrecip],
-                                      [deltaSnowCover, self.actSnowFreeWaterEvap, self.netLqWaterToSoil],
-                                      [prevSnowFreeWater],\
-                                      [self.snowFreeWater],\
-                                      'snowFreeWater',\
-                                       True,\
-                                       currTimeStep.fulldate,threshold=5e-4)
+            #else:
+                #vos.waterBalanceCheck([self.snowfall, self.liquidPrecip],
+                #                      [self.netLqWaterToSoil,\
+                #                       self.actSnowFreeWaterEvap],
+                #                       prevStates,\
+                #                      [self.snowCoverSWE, self.snowFreeWater],\
+                #                      'snow module',\
+                #                       True,\
+                #                       currTimeStep.fulldate,threshold=1e-4)
+                #vos.waterBalanceCheck([self.snowfall, deltaSnowCover],\
+                #                      [pcr.scalar(0.0)],\
+                #                      [prevSnowCoverSWE],\
+                #                      [self.snowCoverSWE],\
+                #                      'snowCoverSWE',\
+                #                       True,\
+                #                       currTimeStep.fulldate,threshold=5e-4)
+                #vos.waterBalanceCheck([self.liquidPrecip],
+                #                      [deltaSnowCover, self.actSnowFreeWaterEvap, self.netLqWaterToSoil],
+                #                      [prevSnowFreeWater],\
+                #                      [self.snowFreeWater],\
+                #                      'snowFreeWater',\
+                #                       True,\
+                #                       currTimeStep.fulldate,threshold=5e-4)
                 
         
         

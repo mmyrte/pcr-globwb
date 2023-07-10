@@ -46,8 +46,9 @@ def updateStaticGlacier(self, meteo, currTimeStep):
     
     #Empirical constants
     #For melting:
-    MRG=1.52 #Melt Rate of Glacier over Melt Rate of Snow; Stahl et al., 2008
-
+    MRG=1 #Melt Rate of Glacier over Melt Rate of Snow; Stahl et al., 2008
+    self.degreeDayFactorGlacier=0.009
+    
     #For outflow:
     #Derived from Van Tiel et al., 2018
     Kmin=0.2 #Minimal outflow fraction
@@ -59,7 +60,7 @@ def updateStaticGlacier(self, meteo, currTimeStep):
     
     #Glacier capacity
     glacierWaterHoldingCap=self.snowWaterHoldingCap
-    acclim=3 #minimum snow thickness needed for accummulation [m]
+    acclim=0.625 #minimum snow thickness needed for accummulation [m]
     
     #Calculate Glacier Accummulation
     self.glacierAccummulation=pcr.ifthenelse(self.snowCoverSWE>acclim, AccEfficiency*self.glacierized*self.snowCoverSWE, 0)
@@ -80,7 +81,7 @@ def updateStaticGlacier(self, meteo, currTimeStep):
             pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingT),(self.snowCoverSWE>0.0)), \
             0.0, \
            pcr.min(self.glacierIce, \
-                    self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0) * MRG * (self.degreeDayFactor)))
+                    self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0) * MRG * (self.degreeDayFactorGlacier)))
         
     
     self.glacierIce-=self.iceMelt
