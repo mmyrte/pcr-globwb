@@ -204,7 +204,7 @@ class LandSurface(object):
                           'irrigationTranspirationDeficit']
         
         #ADDED BY JOREN: START
-        self.fluxVars   +=['incomingVolSnow', 'transportVolSnow', 'glacierOutflow', 'glacierAccumulation', 'iceMelt', 'yearlyIceMelt', 'yearlyGlacierAcc']
+        self.fluxVars   +=['incomingVolSnow', 'transportVolSnow', 'glacierOutflow', 'glacierIncoming', 'glacierOutgoing', 'glacierAccumulation', 'iceMelt']
         #ADDED BY JOREN: STOP
         
         
@@ -350,38 +350,6 @@ class LandSurface(object):
                                                         self.soil_topo_parameters[coverType],self.landmask,\
                                                         self.irrigationEfficiency,\
                                                         self.usingAllocSegments)
-        
-        #ADDED BY JOREN: START-----------------------------------------------------------------------------------------------------
-        #Initiate Glaciers
-        if "glacierModule" in list(self.iniItems.landSurfaceOptions.keys()):
-            if self.iniItems.landSurfaceOptions['glacierModule'] == "True": self.glacierModule = True
-            elif self.iniItems.landSurfaceOptions['glacierModule'] == "False": self.glacierModule = False
-        else:
-            self.glacierModule = False
-            
-        if "glacierType" in list(self.iniItems.landSurfaceOptions.keys()):
-            self.glacierType = self.iniItems.landSurfaceOptions["glacierType"]
-        else:
-            self.glacierType = 'Static'
-            
-        #Glacier Module
-        if self.glacierModule:
-            gl.initializeGlacier(self, iniItems)
-        else:
-            self.glacierized=pcr.scalar(0)
-            self.glacierWater=pcr.scalar(0)
-            self.glacierIce=pcr.scalar(0)
-        self.yearlyIceMelt=pcr.scalar(0)
-        self.yearlyGlacierAcc=pcr.scalar(0)
-
-        for coverType in self.coverTypes: 
-            self.landCoverObj[coverType].glacierized=self.glacierized
-            self.landCoverObj[coverType].glacierIce=self.glacierIce
-            self.landCoverObj[coverType].glacierWater=self.glacierWater
-            self.landCoverObj[coverType].yearlyIceMelt=self.yearlyIceMelt
-            self.landCoverObj[coverType].yearlyGlacierAcc=self.yearlyGlacierAcc
-
-        #ADDED BY JOREN: STOP-----------------------------------------------------------------------------------------------------
         
         # rescale landCover Fractions
         # - by default, the land cover fraction will always be corrected (to ensure the total of all fractions = 1.0)
@@ -1483,53 +1451,51 @@ class LandSurface(object):
         
         #--------CHANGED BY JOREN: START--------------------------------------------------------
         #----UPDATE THE GLACIERS HERE:-------------------------------------------
-        if (self.glacierModule==True):
-            
-            if self.debugWaterBalance:
-                prevGlacierIce    = self.glacierIce
-                #prevStates        = [self.snowCoverSWE,self.snowFreeWater, self.glacierIce, self.glacierWater]
+        if (self.glacierModule==True) & (self.glacierType=='delta_H'):
+            logger.info('Checks if we need to perform delta_H.....')
+            self.glacierAccuCorrection=pcr.scalar(0.0)
+            #Run only the first of October!
+            if currTimeStep.doy==274:
                 
-            if (self.glacierType=='delta_H'):
-                logger.info('DELTA H GLACIERS: Checks if we need to perform delta_H.....')
-                self.glacierAccuCorrection=pcr.scalar(0.0)
-                self.glacierDifference=pcr.scalar(0.0)
-                #Run only the first of October!
-                if currTimeStep.doy==274:
-
-                    logger.info('DELTA H GLACIERS: Yes we do! Updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
-
-                    #We need to do a water balance check
-                    
-
-                    gl.updateDeltaH(self, currTimeStep)
-
-                    logger.info('DELTA H GLACIERS: Finished with updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
-
-                    self.glacierDifference=(self.glacierIce-prevGlacierIce)*self.cellArea
-
-                    for coverType in self.coverTypes:            
-                        logger.info("DELTA H GLACIERS: Returning glacier vars to: "+str(coverType))
-                        self.landCoverObj[coverType].snowCoverSWE+=self.glacierAccuCorrection
-                        self.landCoverObj[coverType].yearlyIceMelt=self.yearlyIceMelt
-                        self.landCoverObj[coverType].yearlyGlacierAcc=self.yearlyGlacierAcc
+                logger.info('Yes we do! Updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
+                
+                #We need to do a water balance check
+                if self.debugWaterBalance:
+                    prevGlacierIce    = self.glacierIce
+                
+                gl.updateDeltaH(self, currTimeStep)$
+                
+                logger.info('Finished with updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
+                
+                self.glacierDifference=(self.glacierIce-prevGlacierIce)*self.cellArea
+                
+                
+                if self.debugWaterBalance:
+                    if self.glacierModule==True:
+                        logger.info('WBCHECK including GlacierModule')
                         
-            elif  self.glacierType=='Static':
-                logger.info('STATIC GLACIERS: Resetting Glacier Shape.....')
-                #Ice shape has to be reset every time step, so that glaciers do not dissappear. However, to fix the water balance, this difference has to come from somewhere.
-                self.glacierDifference=(self.glacierIce_ini-self.glacierIce)*self.cellArea
-                self.glacierIce=self.glacierIce_ini
-                
-            elif (self.glacierType=='Immerzeel'):
-                logger.info('IMMERZEEL GLACIERS: Sliding following Immerzeel et al., 2012.....')
-                gl.glacierSlideImmerzeel(self, currTimeStep)
+                        if self.glacierType=='delta_H':
+                            self.glacierOutgoing=pcr.scalar(0)
+                    
+                            #glacierAccuCorrection is needed in case the glacier grows beyond its original size. In that case, the extra ice is turned to snow.
+                            #Accummulation needs to be reduced.
+                            #FALSE:#However, we need to make sure that this is only counted once in the ice change, so also glacierIncoming (=the shape change) needs to be corrected. TIMES CELL AREA!
+                            #Note: prevGlacierIce already included mass gain throughout the year
 
-        
-            #Return the new conditions to the LandCover classes.
-            for coverType in self.coverTypes: 
-                self.landCoverObj[coverType].glacierized=self.glacierized
-                self.landCoverObj[coverType].glacierIce=self.glacierIce
-                self.landCoverObj[coverType].glacierWater=self.glacierWater
-            
+                            self.glacierIncoming=self.glacierDifference+self.glacierAccuCorrection*self.cellArea
+                            self.glacierAccumulation-=self.glacierAccuCorrection
+                    
+                vos.waterBalanceCheck([self.glacierIncoming/self.cellArea],
+                                  [self.glacierOutgoing/self.cellArea],
+                                  [prevGlacierIce],\
+                                  [self.glacierIce],\
+                                  'glacierIce',\
+                                   True,\
+                                   currTimeStep.fulldate,threshold=1e-4)
+            else:
+                self.glacierDifference=pcr.scalar(0.0)
+                
+             
         
         #----UPDATE THE GLACIERS HERE: STOP--------------------------------------
         #--------CHANGED BY JOREN: STOP--------------------------------------------------------
@@ -1563,47 +1529,6 @@ class LandSurface(object):
         
         
         #--------CHANGED BY JOREN: START--------------------------------------------------------
-        
-        if (self.glacierModule==True):
-            if self.debugWaterBalance:
-                if (self.glacierType=='delta_H'):
-                    logger.info('WBCHECK including GlacierModule: delta H')
-
-                    self.glacierOutgoing=pcr.scalar(0)
-
-                    # glacierAccuCorrection is needed in case the glacier grows beyond its original size. In that case, the extra ice is turned to snow.
-                    # Accummulation needs to be reduced.
-                    # FALSE:#However, we need to make sure that this is only counted once in the ice change, 
-                    # so also glacierIncoming (=the shape change) needs to be corrected. TIMES CELL AREA!
-                    # Note: prevGlacierIce already included mass gain throughout the year
-
-                    self.glacierIncoming=self.glacierDifference+self.glacierAccuCorrection*self.cellArea
-                    self.glacierAccumulation-=self.glacierAccuCorrection
-                
-                elif self.glacierType=='Static':
-                    self.glacierOutgoing=pcr.scalar(0)
-                    self.glacierIncoming=self.glacierDifference
-                    
-                    
-            vos.waterBalanceCheck([self.glacierAccumulation, self.glacierIncoming/self.cellArea],
-                              [self.iceMelt, self.glacierOutgoing/self.cellArea],
-                              [prevGlacierIce],\
-                              [self.glacierIce],\
-                              'glacierIce_Full',\
-                               True,\
-                               currTimeStep.fulldate,threshold=1e-4)
-
-            #vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea, self.glacierIncoming/self.cellArea],
-            #                  [self.netLqWaterToSoil,\
-            #                   self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea, self.glacierOutflow, self.glacierOutgoing/self.cellArea],
-            #                   prevStates,\
-            #                  [self.snowCoverSWE, self.snowFreeWater, self.glacierIce, self.glacierWater],\
-            #                  'snow module_Full',\
-            #                   True,\
-            #                   currTimeStep.fulldate,threshold=1e-4)
-        
-        
-        
         if self.numberOfSoilLayers == 2: self.totalSto = \
                         self.snowCoverSWE + self.snowFreeWater + self.interceptStor +\
                         self.topWaterLayer +\

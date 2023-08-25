@@ -36,7 +36,7 @@ from ncConverter import *
 
 #%% ADDED BY JOREN: START
 import numpy as np
-import glaciers as gl
+#import glaciers as gl
 #%% ADDED BY JOREN: STOP
 
 class LandCover(object):
@@ -144,17 +144,6 @@ class LandCover(object):
         else:
             self.snowTransport = False
         
-        if "glacierModule" in list(iniItems.landSurfaceOptions.keys()):
-            if iniItems.landSurfaceOptions['glacierModule'] == "True": self.glacierModule = True
-            elif iniItems.landSurfaceOptions['glacierModule'] == "False": self.glacierModule = False
-        else:
-            self.glacierModule = False
-            
-        if "glacierType" in list(iniItems.landSurfaceOptions.keys()):
-            self.glacierType = iniItems.landSurfaceOptions["glacierType"]
-        else:
-            self.glacierType = 'Static'
-        
             
         if "albedoMelt" in list(self.iniItemsLC.keys()):
             if self.iniItemsLC['albedoMelt'] == "True": self.albedoMelt = True
@@ -202,21 +191,12 @@ class LandCover(object):
             
         if self.seasonalMelt:
             logger.info("Initialising Seasonal Melt...")
-            self.DDFmin=self.degreeDayFactor
             
             input = self.iniItemsLC['degreeDayAmplitude']
             vars(self)['degreeDayAmplitude'] = vos.readPCRmapClone(input,self.cloneMap,
                                             self.tmpDir,self.inputDir)
             vars(self)['degreeDayAmplitude'] = pcr.spatial(pcr.scalar(vars(self)['degreeDayAmplitude']))
             
-        
-        #Glacier Module
-        #if self.glacierModule:
-        #    gl.initializeGlacier(self, iniItems)
-        #else:
-        #    self.glacierized=pcr.scalar(0)
-        #    self.glacierWater=pcr.scalar(0)
-        #    self.glacierIce=pcr.scalar(0)
             
         #Snow Transport
         #Cell area is also needed without snow transport
@@ -1532,37 +1512,14 @@ class LandCover(object):
         pass
     
     
-    #%%ADDED BY JOREN: START
+#%%ADDED BY JOREN: START-----------------------------------------------------------------------------------------------------------------------------------------------------------
     def snowMeltSlaterAndClark(self, meteo,currTimeStep):
         logger.info('Starting with the snow module!')
                         
         if self.debugWaterBalance:
-            prevStates        = [self.snowCoverSWE,self.snowFreeWater, self.glacierIce, self.glacierWater]
+            prevStates        = [self.snowCoverSWE,self.snowFreeWater]
             prevSnowCoverSWE  = self.snowCoverSWE
             prevSnowFreeWater = self.snowFreeWater
-            prevGlacierModule = [self.glacierIce, self.glacierWater]
-            prevGlacierWater  = self.glacierWater
-            prevGlacierIce    = self.glacierIce
-            
-        #if (self.glacierModule==True) & (self.glacierType=='delta_H'):
-        #    logger.info('Checks if we need to perform delta_H.....')
-        #    self.glacierVelocity=pcr.scalar(0.0)
-        #    self.glacierAccuCorrection=pcr.scalar(0.0)
-        #    #Run only the first of October!
-        #    if currTimeStep.doy==274:
-        #        logger.info('Here we are: Updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
-        #        gl.updateDeltaH(self, currTimeStep)
-        #        logger.info('Here we are: Finished with updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
-        #        self.glacierDifference=(self.glacierIce-prevGlacierIce)*self.cellArea
-        #    else:
-        #        self.glacierDifference=pcr.scalar(0.0)
-            
-        #if  (self.glacierModule==True) & (self.glacierType=='Static'):
-        #   logger.info('Resetting Glacier Shape.....')
-            #Ice shape has to be reset every time step, so that glaciers do not dissappear. However, to fix the water balance, this difference has to come from somewhere.
-            #self.glacierDifference=(self.glacierIce_ini-self.glacierIce)*self.cellArea
-            #self.glacierIce=self.glacierIce_ini
-        
         
         #------SNOW-TRANSPORT-----------------------------------------------------------------
         self.transportVolSnow=pcr.scalar(0.0)
@@ -1632,36 +1589,15 @@ class LandCover(object):
         #--------------------------------------------------------------------------------------
         
         
-        
-        
-        #-----GLACIER-MODULE------------------------------------------------------------------
-        
-        if self.glacierModule==True:
-            logger.info('Starting with the glaciers.....')
-            self.deltaSnowCover=deltaSnowCover
-            gl.updateStaticGlacier(self, meteo, currTimeStep)
-            deltaSnowCover=self.deltaSnowCover
-        
-            self.netLqWaterToSoil = pcr.max(0., self.snowFreeWater - \
-                     self.snowWaterHoldingCap * self.snowCoverSWE)
-            
-            # update snowFreeWater (after netLqWaterToSoil) 
-            self.snowFreeWater    = pcr.max(0., self.snowFreeWater - \
-                                                self.netLqWaterToSoil)      # SCF_L[TYPE] = max(0,SCF_L[TYPE]-Pn)
-            
-            self.netLqWaterToSoil=self.netLqWaterToSoil+self.netGlacierWaterToSoil
-            
-        # update snowFreeWater = liquid water stored above snowCoverSWE
-        else:
-            self.snowFreeWater = self.snowFreeWater - deltaSnowCover + \
-                                 self.liquidPrecip                          # SCF_L[TYPE] = SCF_L[TYPE]-DSC[TYPE]+PRP;                       
-            # netLqWaterToSoil = net liquid transferred to soil
-            self.netLqWaterToSoil = pcr.max(0., self.snowFreeWater - \
-                     self.snowWaterHoldingCap * self.snowCoverSWE)          # Pn = max(0,SCF_L[TYPE]-CWH*SC_L[TYPE])
-            
-            # update snowFreeWater (after netLqWaterToSoil) 
-            self.snowFreeWater    = pcr.max(0., self.snowFreeWater - \
-                                                self.netLqWaterToSoil)      # SCF_L[TYPE] = max(0,SCF_L[TYPE]-Pn)
+        self.snowFreeWater = self.snowFreeWater - deltaSnowCover + \
+                             self.liquidPrecip                          # SCF_L[TYPE] = SCF_L[TYPE]-DSC[TYPE]+PRP;                       
+        # netLqWaterToSoil = net liquid transferred to soil
+        self.netLqWaterToSoil = pcr.max(0., self.snowFreeWater - \
+                 self.snowWaterHoldingCap * self.snowCoverSWE)          # Pn = max(0,SCF_L[TYPE]-CWH*SC_L[TYPE])
+
+        # update snowFreeWater (after netLqWaterToSoil) 
+        self.snowFreeWater    = pcr.max(0., self.snowFreeWater - \
+                                            self.netLqWaterToSoil)      # SCF_L[TYPE] = max(0,SCF_L[TYPE]-Pn)
         
         #--------------------------------------------------------------------------------
         
@@ -1684,39 +1620,6 @@ class LandCover(object):
                 
         
         if self.debugWaterBalance:
-            if self.glacierModule==True:
-                logger.info('WBCHECK including GlacierModule')
-                #if self.glacierType=='Static':
-                    #self.glacierOutgoing=pcr.scalar(0)
-                    #self.glacierIncoming=self.glacierDifference
-                #elif self.glacierType=='delta_H':
-                    #self.glacierOutgoing=pcr.scalar(0)
-                    
-                    #glacierAccuCorrection is needed in case the glacier grows beyond its original size. In that case, the extra ice is turned to snow.
-                    #Accummulation needs to be reduced.
-                    #FALSE:#However, we need to make sure that this is only counted once in the ice change, so also glacierIncoming (=the shape change) needs to be corrected. TIMES CELL AREA!
-                    #Note: prevGlacierIce already included mass gain throughout the year
-                    
-                    #self.glacierIncoming=self.glacierDifference+self.glacierAccuCorrection*self.cellArea
-                    #self.glacierAccumulation-=self.glacierAccuCorrection
-
-            else:
-                logger.info('WBCHECK NO GlacierModule')
-                self.glacierIce=pcr.scalar(0)
-                self.glacierWater=pcr.scalar(0)
-
-                self.glacierOutflow=pcr.scalar(0)
-                self.netGlacierWaterToSoil=pcr.scalar(0)
-
-                self.glacierAccumulation=pcr.scalar(0)
-                self.rain2GlacierWater=pcr.scalar(0)
-                self.snow2GlacierWater=pcr.scalar(0)
-                self.capacity2GlacierWater=pcr.scalar(0)
-                self.iceMelt=pcr.scalar(0)
-
-                #self.glacierOutgoing=pcr.scalar(0)
-                #self.glacierIncoming=pcr.scalar(0)
-                        
             if self.snowTransport=='Complete' or self.snowTransport=='Basic' or self.snowTransport=='FreyAndHolzmann' or self.snowTransport=='FreyAndHolzmann_pcraster':
                 logger.info('WBCHECK including SnowTransport: '+str(self.snowTransport))
             else:
@@ -1724,107 +1627,33 @@ class LandCover(object):
                 self.incomingVolSnow=pcr.scalar(0)
                 self.transportVolSnow=pcr.scalar(0)
                 
-            #vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea, self.glacierIncoming/self.cellArea],
-            #                      [self.netLqWaterToSoil,\
-            #                       self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea, self.glacierOutflow, self.glacierOutgoing/self.cellArea],
-            #                       prevStates,\
-            #                      [self.snowCoverSWE, self.snowFreeWater, self.glacierIce, self.glacierWater],\
-            #                      'snow module',\
-            #                       True,\
-            #                       currTimeStep.fulldate,threshold=1e-4)
             
-            vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea],
+             vos.waterBalanceCheck([self.snowfall, self.liquidPrecip, self.incomingVolSnow/self.cellArea],
                                   [self.netLqWaterToSoil,\
-                                   self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea, self.glacierOutflow],
+                                   self.actSnowFreeWaterEvap, self.transportVolSnow/self.cellArea],
                                    prevStates,\
-                                  [self.snowCoverSWE, self.snowFreeWater, self.glacierIce, self.glacierWater],\
-                                  'snow module local',\
+                                  [self.snowCoverSWE, self.snowFreeWater],\
+                                  'snow module',\
                                    True,\
                                    currTimeStep.fulldate,threshold=1e-4)
 
             vos.waterBalanceCheck([self.snowfall, deltaSnowCover, self.incomingVolSnow/self.cellArea],\
-                                  [self.transportVolSnow/self.cellArea, self.glacierAccumulation],\
+                                  [self.transportVolSnow/self.cellArea],\
                                   [prevSnowCoverSWE],\
                                   [self.snowCoverSWE],\
                                   'snowCoverSWE',\
                                    True,\
                                    currTimeStep.fulldate,threshold=1e-4)
 
-            vos.waterBalanceCheck([self.liquidPrecip-self.rain2GlacierWater, -1*deltaSnowCover],
-                                  [self.actSnowFreeWaterEvap, self.netLqWaterToSoil-self.netGlacierWaterToSoil, self.snow2GlacierWater, self.capacity2GlacierWater],
+            vos.waterBalanceCheck([self.liquidPrecip, -1*deltaSnowCover],
+                                  [self.actSnowFreeWaterEvap, self.netLqWaterToSoil],
                                   [prevSnowFreeWater],\
                                   [self.snowFreeWater],\
                                   'snowFreeWater',\
                                    True,\
                                    currTimeStep.fulldate,threshold=1e-4)
-            
-
-            vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.glacierAccumulation, self.capacity2GlacierWater],
-                                  [self.glacierOutflow, self.netGlacierWaterToSoil],
-                                  prevGlacierModule,\
-                                  [self.glacierIce, self.glacierWater],\
-                                  'glacierModule local',\
-                                   True,\
-                                   currTimeStep.fulldate,threshold=1e-4)
                 
-                
-                
-            vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.iceMelt, self.capacity2GlacierWater],
-                                  [self.glacierOutflow, self.netGlacierWaterToSoil],
-                                  [prevGlacierWater],\
-                                  [self.glacierWater],\
-                                  'glacierWater',\
-                                   True,\
-                                   currTimeStep.fulldate,threshold=1e-4)
-            
-            
-            vos.waterBalanceCheck([self.glacierAccumulation],
-                                  [self.iceMelt],
-                                  [prevGlacierIce],\
-                                  [self.glacierIce],\
-                                  'glacierIce local',\
-                                   True,\
-                                   currTimeStep.fulldate,threshold=1e-4)
-            
-                
-            #else:
-                #vos.waterBalanceCheck([self.snowfall, self.liquidPrecip],
-                #                      [self.netLqWaterToSoil,\
-                #                       self.actSnowFreeWaterEvap],
-                #                       prevStates,\
-                #                      [self.snowCoverSWE, self.snowFreeWater],\
-                #                      'snow module',\
-                #                       True,\
-                #                       currTimeStep.fulldate,threshold=1e-4)
-                #vos.waterBalanceCheck([self.snowfall, deltaSnowCover],\
-                #                      [pcr.scalar(0.0)],\
-                #                      [prevSnowCoverSWE],\
-                #                      [self.snowCoverSWE],\
-                #                      'snowCoverSWE',\
-                #                       True,\
-                #                       currTimeStep.fulldate,threshold=5e-4)
-                #vos.waterBalanceCheck([self.liquidPrecip],
-                #                      [deltaSnowCover, self.actSnowFreeWaterEvap, self.netLqWaterToSoil],
-                #                      [prevSnowFreeWater],\
-                #                      [self.snowFreeWater],\
-                #                      'snowFreeWater',\
-                #                       True,\
-                #                       currTimeStep.fulldate,threshold=5e-4)
-                
-        
-        
-        
-        #if (self.glacierModule==True) & (self.glacierType=='Immerzeel'):
-        #    logger.info('Sliding following Immerzeel et al., 2012.....')
-        #    gl.glacierSlideImmerzeel(self, currTimeStep)
-        #    
-        #    vos.waterBalanceCheck([self.glacierAccumulation, self.glacierIncoming/self.cellArea],
-        #                              [self.iceMelt, self.glacierOutgoing/self.cellArea],
-        #                              [prevGlacierIce],\
-        #                              [self.glacierIce],\
-        #                              'glacierIce After Transport',\
-        #                               True,\
-        #                               currTimeStep.fulldate,threshold=1e-4)
+ #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------               
             
     
     def snowSlideBasic(self, currTimeStep):
@@ -4284,10 +4113,7 @@ class LandCover(object):
         # landSurfaceRunoff (needed for routing)
         
         #CHANGED BY JOREN: START
-        if self.glacierModule==False:
-            self.landSurfaceRunoff = self.directRunoff + self.interflowTotal
-        else:
-            self.landSurfaceRunoff = self.directRunoff + self.interflowTotal + self.glacierOutflow
+        self.landSurfaceRunoff = self.directRunoff + self.interflowTotal
         #CHANGED BY JOREN: STOP
 
     def upperSoilUpdate(self,meteo,groundwater,routing,\

@@ -649,6 +649,8 @@ class Reporting(object):
         self.glacierIce= self._model.landSurface.glacierIce
         self.glacierWater= self._model.landSurface.glacierWater
         self.glacierOutflow= self._model.landSurface.glacierOutflow
+        self.iceMelt= self._model.landSurface.iceMelt
+        self.glacierAccumulation= self._model.landSurface.glacierAccumulation
         #ADDED BY JOREN: STOP
 
         self.topWaterLayer = self._model.landSurface.topWaterLayer

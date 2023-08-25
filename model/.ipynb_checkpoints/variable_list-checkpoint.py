@@ -1657,11 +1657,35 @@ latex_symbol[pcrglobwb_variable_name]      = None
 pcrglobwb_variable_name = 'glacierIce'
 netcdf_short_name[pcrglobwb_variable_name] = 'glacierIce'
 netcdf_unit[pcrglobwb_variable_name]       = 'm'
-netcdf_monthly_total_unit[pcrglobwb_variable_name] = None 
-netcdf_yearly_total_unit[pcrglobwb_variable_name]  = None
+netcdf_monthly_total_unit[pcrglobwb_variable_name] = 'm'
+netcdf_yearly_total_unit[pcrglobwb_variable_name]  = 'm'
 netcdf_standard_name[pcrglobwb_variable_name] = 'glacierIce'
 netcdf_long_name[pcrglobwb_variable_name]  = 'Glacier ice'
 description[pcrglobwb_variable_name]       = 'Total Ice in Glacier over Grid Cell'
+comment[pcrglobwb_variable_name]           = None
+latex_symbol[pcrglobwb_variable_name]      = None
+
+#iceMelt
+pcrglobwb_variable_name = 'iceMelt'
+netcdf_short_name[pcrglobwb_variable_name] = 'iceMelt'
+netcdf_unit[pcrglobwb_variable_name]       = 'm'
+netcdf_monthly_total_unit[pcrglobwb_variable_name] = 'm'
+netcdf_yearly_total_unit[pcrglobwb_variable_name]  = 'm'
+netcdf_standard_name[pcrglobwb_variable_name] = 'iceMelt'
+netcdf_long_name[pcrglobwb_variable_name]  = 'Glacier Melt'
+description[pcrglobwb_variable_name]       = 'Total Ice Melt from Glacier over Grid Cell'
+comment[pcrglobwb_variable_name]           = None
+latex_symbol[pcrglobwb_variable_name]      = None
+
+#glacierAccummulation
+pcrglobwb_variable_name = 'glacierAccumulation'
+netcdf_short_name[pcrglobwb_variable_name] = 'glacierAccumulation'
+netcdf_unit[pcrglobwb_variable_name]       = 'm'
+netcdf_monthly_total_unit[pcrglobwb_variable_name] = 'm'
+netcdf_yearly_total_unit[pcrglobwb_variable_name]  = 'm'
+netcdf_standard_name[pcrglobwb_variable_name] = 'glacierAccumulation'
+netcdf_long_name[pcrglobwb_variable_name]  = 'Glacier Accumulation'
+description[pcrglobwb_variable_name]       = 'Total Glacier Accumulation over Grid Cell'
 comment[pcrglobwb_variable_name]           = None
 latex_symbol[pcrglobwb_variable_name]      = None
 
