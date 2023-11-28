@@ -129,6 +129,10 @@ class Meteo(object):
 
         self.preFileNC = iniItems.meteoOptions['precipitationNC']        # starting from 19 Feb 2014, we only support netcdf input files
         self.tmpFileNC = iniItems.meteoOptions['temperatureNC']
+        
+        if 'temperatureMaxNC' in list(iniItems.meteoOptions.keys()):
+            logger.info('Reading Temperature MAX!')
+            self.tmpmaxFileNC = iniItems.meteoOptions['temperatureMaxNC']
 
         self.refETPotMethod = iniItems.meteoOptions['referenceETPotMethod']
         msg = "Method for the reference potential evaporation: " + str(self.refETPotMethod)
@@ -328,7 +332,12 @@ class Meteo(object):
         if 'precipitationVariableName' in meteoOptions: self.preVarName      = meteoOptions['precipitationVariableName']
         if 'temperatureVariableName'   in meteoOptions: self.tmpVarName      = meteoOptions['temperatureVariableName'  ]
         if 'referenceEPotVariableName' in meteoOptions: self.refETPotVarName = meteoOptions['referenceEPotVariableName']
-
+        
+        #ADDED BY JOREN: START--------------------------------------------------------------------------------------------
+        if 'temperatureMaxVariableName'   in meteoOptions: self.tmpVarName      = meteoOptions['temperatureMaxVariableName'  ]
+        #ADDED BY JOREN: STOP--------------------------------------------------------------------------------------------
+        
+        
     def forcingDownscalingOptions(self, iniItems):
 
         self.downscalePrecipitationOption  = False
@@ -1101,6 +1110,34 @@ class Meteo(object):
         # NOTE: RvB 13/07/2016 added to automatically update temperature
         self.temperature    = self.tmpConst + self.tmpFactor * self.temperature
         #-----------------------------------------------------------------------
+        
+        
+        #ADDED BY JOREN: START-----------------------------------------------------------------------------------------------------------
+        if 'temperatureMaxNC' in list(self.iniItems.meteoOptions.keys()):
+            # method for finding time index in the temperature netdf file:
+            # - the default one
+            method_for_time_index = None
+            method_for_time_index = "daily"
+            # - based on the ini/configuration file (if given)
+            if 'time_index_method_for_temperature_netcdf' in list(self.iniItems.meteoOptions.keys()) and\
+                                                             self.iniItems.meteoOptions['time_index_method_for_temperature_netcdf'] != "None":
+                method_for_time_index = self.iniItems.meteoOptions['time_index_method_for_temperature_netcdf']
+
+            # reading temperature
+            netcdf_file_name = self.tmpmaxFileNC
+
+            self.temperature_max = vos.netcdf2PCRobjClone(\
+                                          netcdf_file_name, "automatic",\
+                                          str(currTimeStep.fulldate), 
+                                          useDoy = method_for_time_index,
+                                          cloneMapFileName = self.cloneMap,\
+                                          LatitudeLongitude = True)
+
+            #-----------------------------------------------------------------------
+            # NOTE: RvB 13/07/2016 added to automatically update temperature
+            self.temperature_max    = self.tmpConst + self.tmpFactor * self.temperature_max
+            #-----------------------------------------------------------------------
+        #ADDED BY JOREN: STOP-----------------------------------------------------------------------------------------------------------
 
 
         if self.refETPotMethod == 'Input': 

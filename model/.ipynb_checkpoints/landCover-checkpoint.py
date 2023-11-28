@@ -702,7 +702,23 @@ class LandCover(object):
         rootZoneWaterStorageRange = \
                                self.parameters.rootZoneWaterStorageCap -\
                                                rootZoneWaterStorageMin
-
+    
+        #ADDED BY JOREN: START-------------------------------------------
+        print('LOOK: NOW HERE----------')
+        a,b,c =vos.getMinMaxMean(lc_parameters['arnoBeta'])
+        msg = "ArnoBeta 1: Min %f Max %f Mean %f" %(a,b,c)
+        logger.info(msg)
+        if "factorBeta" in list(self.iniItemsLC.keys()):
+            print("---WARNING---Changing arnoBeta-------------------")
+            self.factorBeta=float(self.iniItemsLC['factorBeta'])
+            lc_parameters['arnoBeta']=lc_parameters['arnoBeta']*self.factorBeta
+        
+        print('LOOK: ALREADY HERE-------')
+        a,b,c =vos.getMinMaxMean(lc_parameters['arnoBeta'])
+        msg = "ArnoBeta 2: Min %f Max %f Mean %f" %(a,b,c)
+        logger.info(msg)
+        #ADDED BY JOREN: STOP-------------------------------------------
+        
         # the parameter arnoBeta (dimensionless)
         arnoBeta = pcr.max(0.001, lc_parameters['arnoBeta'])
         arnoBeta = pcr.cover(arnoBeta, 0.001)
@@ -1592,7 +1608,7 @@ class LandCover(object):
         #------SNOW-MELT-----------------------------------------------------------------
         if self.albedoMelt==True:
             logger.info('Using Albedo Based Melt.....')
-            self.PDD=pcr.ifthenelse(pcr.pcrand(self.snowfall<0.005, self.snowCoverSWE>0.0), self.PDD+pcr.max(meteo.temperature, 0), 0.001)
+            self.PDD=pcr.ifthenelse(pcr.pcrand(self.snowfall<0.005, self.snowCoverSWE>0.0), self.PDD+pcr.max(meteo.temperature_max, 0), 0.001)
             self.albedo=0.713-0.112*pcr.log10(self.PDD)
             self.albedo=pcr.max(self.albedo, 0.4)
             self.albedo=pcr.min(self.albedo, 0.85)
@@ -1862,6 +1878,9 @@ class LandCover(object):
         logger.info('Starting with Frey and Holzmann PCRASTER: let\'s see how far we get....')
         
         exceedingSnow=pcr.max(self.snowCoverSWE-self.Hv, 0.0)
+        logger.info('No Transport on Glaciers!!....')
+        exceedingSnow=pcr.ifthenelse(self.glacierized>0, 0.0, exceedingSnow)
+        
         #xceedingSnow=pcr.ifthenelse(self.demdiff>100, exceedingSnow, 0.0)
         transportVolSnow=pcr.max(exceedingSnow*self.cellArea, 0.0)
         #Convert everything to volumes
@@ -3036,7 +3055,11 @@ class LandCover(object):
         self.topWaterLayer = pcr.max(0.0, self.topWaterLayer - self.directRunoff)
 
     def improvedArnoScheme(self, iniWaterStorage, inputNetLqWaterToSoil, directRunoffReductionMethod = "Default"):
-
+        #JOREN!!
+        a,b,c =vos.getMinMaxMean(self.arnoBeta)
+        msg = "ArnoBeta 3: Min %f Max %f Mean %f" %(a,b,c)
+        logger.info(msg)
+        
         # arnoBeta = BCF = b coefficient of soil water storage capacity distribution
         # 
         # WMIN = root zone water storage capacity, minimum values

@@ -66,12 +66,12 @@ def initializeGlacier(self, iniItems):
             self.ini_dH = False
         
         if self.ini_dH==True:
-            self.initializeDeltaH()
+            gl.initializeDeltaH(self)
     
     if self.glacierType=='Immerzeel':
         
-        self.tau_0=80000 #Equilibrium shear stress [Nm-2]
-        self.R=3.4e10 #Material roughness coefficient [Nm-2s1/3]
+        self.tau_0=364000 #Equilibrium shear stress [Nm-2]
+        self.R=5.8e10 #Material roughness coefficient [Nm-2s1/3]
         self.flowlim=5 #[m]; Flow limit. If ice is thinner, there is no flow
         
         self.lddMap = vos.readPCRmapClone(iniItems.routingOptions['lddMap'],\
@@ -135,18 +135,18 @@ def updateStaticGlacier_old(self, meteo, currTimeStep):
         
     #Ice Melt
     #To Do: make melt different from snow; Add rain?
-    if self.seasonalMelt:
-        self.iceMelt = \
-            pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingT),(self.snowCoverSWE>0.0)), \
-            0.0, \
-           pcr.min(self.glacierIce, \
-                    self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0)*(self.degreeDayFactor+self.degreeDayAmplitude*np.sin((currTimeStep.doy-81)*2*np.pi/366))))
-    else:
-        self.iceMelt = \
-            pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingT),(self.snowCoverSWE>0.0)), \
-            0.0, \
-           pcr.min(self.glacierIce, \
-                    self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0) * (self.degreeDayFactorGlacier)))
+    #if self.seasonalMelt:
+    #    self.iceMelt = \
+    #        pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingT),(self.snowCoverSWE>0.0)), \
+    #        0.0, \
+    #       pcr.min(self.glacierIce, \
+    #                self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0)*(self.degreeDayFactor+self.degreeDayAmplitude*np.sin((currTimeStep.doy-81)*2*np.pi/366))))
+    #else:
+    self.iceMelt = \
+        pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingT),(self.snowCoverSWE>0.0)), \
+        0.0, \
+       pcr.min(self.glacierIce, \
+                self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0) * (self.degreeDayFactorGlacier)))
         
     
     self.glacierIce-=self.iceMelt
@@ -377,7 +377,10 @@ def updateDeltaH(self, currTimeStep):
         elif frac<0:
             #print('Sir, we have caught a grower!!')
             indivNew=pcr.readmap("/hyclimm/gjanzing/data/glacierShape_minus00M.map")
-
+        
+        #FIX: cover NaN values
+        indivNew=pcr.cover(indivNew, 0.0)
+        
         newShape=pcr.ifthenelse(glacierShape, indivNew, 0.0)
         glacierIcenew=glacierIcenew+newShape
 
@@ -400,23 +403,25 @@ def updateDeltaH(self, currTimeStep):
         #NOTE: also when a glacier grows more than the initial shape, it will be divided over the glacier as glacier ice!!
 
         if (frac!=1) and (abs(glacierGap)>1e-3):
-            area=pcr.cellvalue(pcr.maptotal(pcr.scalar(newShape>0)),1)[0]
+            #We only divide stuff over places where the thickness is larger than 1, in order to prevent cells where the glacierDiff is larger than the ice thickness.
+            area=pcr.cellvalue(pcr.maptotal(pcr.scalar(newShape>1)),1)[0]
 
-            #print('area:'+str(area))
-            #print('glacierDiff:'+str(glacierDiff))
-            #print('glacierDiff:'+str(float(glacierDiff/area)))
+            #If all cells are smaller than 1m, than area=1.
+            if area==0:
+                area=1
 
-            glacierDiff=pcr.ifthenelse(glacierShape, pcr.scalar(glacierGap/area), 0.0)
-
+            #glacierDiff=pcr.ifthenelse(glacierShape, pcr.scalar(glacierGap/area), 0.0)
+            glacierDiff=pcr.ifthenelse(newShape>1, pcr.scalar(glacierGap/area), 0.0)
+            
             #Glaciers can not grow beyond their original extend. In case this happens, it is added to snow. 
             #This can then lead to snow towers, which could be removed by snow redistribution.
-            if (frac<0) or ((frac==0) and (glacierGap>0)):
-                self.snowCoverSWE+=glacierDiff
+            #if (frac<0) or ((frac==0) and (glacierGap>0)):
+            #    self.snowCoverSWE+=glacierDiff
                 
-                #This will be overwritten anyway, right?
-                self.glacierAccuCorrection+=glacierDiff
-            else:
-                glacierIcenew=glacierIcenew+glacierDiff
+            #    #This will be overwritten anyway, right?
+            #    self.glacierAccuCorrection+=glacierDiff
+            #else:
+            glacierIcenew=glacierIcenew+glacierDiff
         
         
         #Should not happen: melt is restricted to the glacier volume, right?
@@ -438,6 +443,8 @@ def updateDeltaH(self, currTimeStep):
 
     #Update the new GlacierIce!
     self.glacierIce=glacierIcenew 
+    #FIX: cover NaN values
+    self.glacierIce=pcr.cover(self.glacierIce, 0.0)
     self.glacierized=pcr.scalar(self.glacierIce>0.0)
 
     #Re-initialize the storages over time.

@@ -371,6 +371,8 @@ class LandSurface(object):
             self.glacierized=pcr.scalar(0)
             self.glacierWater=pcr.scalar(0)
             self.glacierIce=pcr.scalar(0)
+            self.glacierIncoming=pcr.scalar(0)
+            self.glacierOutgoing=pcr.scalar(0)
         self.yearlyIceMelt=pcr.scalar(0)
         self.yearlyGlacierAcc=pcr.scalar(0)
 
@@ -1499,8 +1501,6 @@ class LandSurface(object):
                     logger.info('DELTA H GLACIERS: Yes we do! Updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
 
                     #We need to do a water balance check
-                    
-
                     gl.updateDeltaH(self, currTimeStep)
 
                     logger.info('DELTA H GLACIERS: Finished with updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')

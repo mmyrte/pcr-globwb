@@ -210,7 +210,16 @@ class Groundwater(object):
         if 'recessionCoeff' in list(iniItems.groundwaterOptions.keys()):
             if iniItems.groundwaterOptions['recessionCoeff'] != "None":\
                self.recessionCoeff = vos.readPCRmapClone(iniItems.groundwaterOptions['recessionCoeff'],self.cloneMap,self.tmpDir,self.inputDir)
-
+        
+        
+        #--ADDED BY JOREN: START ----------------------------------------------
+        if 'factorRecessionCoeff' in list(iniItems.groundwaterOptions.keys()):
+            self.factorRecessionCoeff=float(iniItems.groundwaterOptions['factorRecessionCoeff'])
+            self.recessionCoeff=self.recessionCoeff*self.factorRecessionCoeff
+            print('--WARNING: CHANGED RECESSION COEFF---------------------')
+        #--ADDED BY JOREN: STOP ----------------------------------------------
+        
+        
         # minimum and maximum values for groundwater recession coefficient (day-1)
         self.recessionCoeff = pcr.cover(self.recessionCoeff,0.00)
         self.recessionCoeff = pcr.min(0.9999,self.recessionCoeff)
@@ -219,7 +228,10 @@ class Groundwater(object):
         else:
             minRecessionCoeff = 1.0e-4                                               # This is the minimum value used in Van Beek et al. (2011).
         self.recessionCoeff = pcr.max(minRecessionCoeff,self.recessionCoeff)
-        #####################################################################################################################################################
+       
+
+    
+    #####################################################################################################################################################
 
 
         #####################################################################################################################################################

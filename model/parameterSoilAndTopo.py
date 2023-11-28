@@ -185,10 +185,24 @@ class SoilAndTopoParameters(object):
             self.calibrationK = False
         
         if self.calibrationK==True:
+            if "calibrationKwhich" in list(iniItems.landSurfaceOptions.keys()):
+                if iniItems.landSurfaceOptions['calibrationKwhich'] == "upper": self.calibrationKwhich = "upper"
+                elif iniItems.landSurfaceOptions['calibrationKwhich'] == "lower": self.calibrationKwhich = "lower"
+            else:
+                self.calibrationKwhich = "both"
+                
             print('----WARNING: CHANGING K VALUES!!--------------------------------------------------------')
             self.factorK = float(iniItems.landSurfaceOptions['factorK'])
-            self.KSat1 = self.factorK * self.KSat1
-            self.KSat2 = self.factorK * self.KSat2
+            if self.calibrationKwhich=="upper":
+                print('----CHANGING UPPER VALUE----')
+                self.KSat1 = self.factorK * self.KSat1
+            elif self.calibrationKwhich=="lower":
+                print('----CHANGING LOWER VALUE----')
+                self.KSat2 = self.factorK * self.KSat2
+            else:
+                print('----CHANGING BOTH VALUES----')
+                self.KSat1 = self.factorK * self.KSat1
+                self.KSat2 = self.factorK * self.KSat2
         #----------------ADDED BY JOREN: STOP-----------------------------------------------------------------
         
         if self.numberOfLayers == 2:
