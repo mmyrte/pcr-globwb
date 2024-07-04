@@ -1737,6 +1737,18 @@ description[pcrglobwb_variable_name]       = 'Incoming of Total water mass of th
 comment[pcrglobwb_variable_name]           = None
 latex_symbol[pcrglobwb_variable_name]      = None
 
+# Snowfall
+pcrglobwb_variable_name = 'snowfall'
+netcdf_short_name[pcrglobwb_variable_name] = 'snowfall'
+netcdf_unit[pcrglobwb_variable_name]       = 'm.day-1'
+netcdf_monthly_total_unit[pcrglobwb_variable_name] = 'm.month-1' 
+netcdf_yearly_total_unit[pcrglobwb_variable_name]  = 'm.year-1'
+netcdf_long_name[pcrglobwb_variable_name]  = None
+description[pcrglobwb_variable_name]       = None
+comment[pcrglobwb_variable_name]           = None
+latex_symbol[pcrglobwb_variable_name]      = None
+pcr_short_name[pcrglobwb_variable_name]    = "sf"
+
 #ADDED BY JOREN: STOP
 
 

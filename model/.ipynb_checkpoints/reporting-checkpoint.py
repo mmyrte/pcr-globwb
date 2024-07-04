@@ -644,7 +644,7 @@ class Reporting(object):
         #SnowSlide
         self.incomingVolSnow= self._model.landSurface.incomingVolSnow
         self.transportVolSnow= self._model.landSurface.transportVolSnow
-        
+        self.snowfall= self._model.landSurface.snowfall
         #Glacier
         self.glacierIce= self._model.landSurface.glacierIce
         self.glacierWater= self._model.landSurface.glacierWater

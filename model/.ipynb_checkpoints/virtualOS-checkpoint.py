@@ -187,7 +187,7 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
     cropData = f.variables[varName][:,:]       # still original data
     factor = 1                                 # needed in regridData2FinerGrid
     if sameClone == False:
-
+        
         factor = int(round(float(cellsizeInput)/float(cellsizeClone)))
 
         # crop to cloneMap:
@@ -212,10 +212,10 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
         yIdxEnd = int(math.ceil(yIdxSta + rowsClone /(factor)))
 
         cropData = f.variables[varName][yIdxSta:yIdxEnd,xIdxSta:xIdxEnd]
-
+        
         if factor > 1: logger.debug('Resample: input cell size = '+str(float(cellsizeInput))+' ; output/clone cell size = '+str(float(cellsizeClone)))
     
-
+        
     #~ # convert to PCR object and close f - OLD METHOD
     #~ if specificFillValue != None:
         #~ outPCR = pcr.numpy2pcr(pcr.Scalar, \
@@ -228,19 +228,24 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
 
     # convert to PCR object and close f
     if specificFillValue != None:
+        
         outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(specificFillValue)), \
                   float(specificFillValue))
+        
     else:
         try:
+            
             outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(f.variables[varName]._FillValue)), \
                   float(f.variables[varName]._FillValue))
             
         except:
+            
             outPCR = pcr.numpy2pcr(pcr.Scalar, \
                   regridData2FinerGrid(factor, cropData, float(f.variables[varName].missing_value)), \
                   float(f.variables[varName].missing_value))
+            
 
     #~ # debug:
     #~ pcr.report(outPCR,"tmp.map")
@@ -251,7 +256,7 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
     f.close();
 
     f = None ; cropData = None 
-
+    print("10.We are here!")
     # PCRaster object
     return (outPCR)
 
@@ -2031,8 +2036,6 @@ def regridData2FinerGrid(rescaleFac,coarse,MV):
     
     fine= np.zeros(nr*nc*rescaleFac*rescaleFac).reshape(nr*rescaleFac,nc*rescaleFac) + MV
     
-    print('Uitproberen1')
-    print(fine)
     
     ii = -1
     nrF,ncF = np.shape(fine)
@@ -2041,12 +2044,6 @@ def regridData2FinerGrid(rescaleFac,coarse,MV):
                 ii += 1
             fine [i,:] = coarse[ii,:].repeat(rescaleFac)
     
-    print('Uitproberen2')
-    print(fine)
-    
-    print('Uitproberen3')
-    print(gc.collect())
-    print(gc.garbage[:])
     
     nr = None; nc = None
     del nr; del nc
@@ -2054,9 +2051,7 @@ def regridData2FinerGrid(rescaleFac,coarse,MV):
     del nrF; del ncF
     n = gc.collect() ; del gc.garbage[:] ; n = None ; del n
     
-    print('Uitproberen4')
-    print(fine)
-    
+
     return fine
 
 def regridToCoarse(fine,fac,mode,missValue):

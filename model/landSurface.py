@@ -204,7 +204,7 @@ class LandSurface(object):
                           'irrigationTranspirationDeficit']
         
         #ADDED BY JOREN: START
-        self.fluxVars   +=['incomingVolSnow', 'transportVolSnow', 'glacierOutflow', 'glacierAccumulation', 'iceMelt', 'yearlyIceMelt', 'yearlyGlacierAcc']
+        self.fluxVars   +=['incomingVolSnow', 'transportVolSnow', 'glacierOutflow', 'glacierAccumulation', 'iceMelt', 'yearlyIceMelt', 'yearlyGlacierAcc', 'snowfall']
         #ADDED BY JOREN: STOP
         
         
