@@ -138,6 +138,7 @@ class LandCover(object):
         
         
         #%%ADDED BY JOREN:START
+        #Read parameters for new snow module.
         snowParams      = ['freezingT','liquidT',
                            'degreeDayFactor',
                            'snowWaterHoldingCap',
@@ -148,13 +149,20 @@ class LandCover(object):
                                             self.tmpDir,self.inputDir)
             vars(self)[var] = pcr.spatial(pcr.scalar(vars(self)[var]))
 
+        #Initialize the snow module
         sn.initializeSnow(self, iniItems)
 
+        #In case preferential snow is use, initialize this.
         if "preferentialFlow" in list(self.iniItemsLC.keys()):
             if self.iniItemsLC['preferentialFlow'] == "True": self.preferentialFlow = True
             elif self.iniItemsLC['preferentialFlow'] == "False": self.preferentialFlow = False
         else:
             self.preferentialFlow = False
+        if self.preferentialFlow == True:
+            self.forestFrac=vos.readPCRmapClone(\
+                      self.iniItemsLC['forest'],
+                      self.cloneMap,self.tmpDir,self.inputDir)
+            self.forestFrac=pcr.ifthenelse(self.forestFrac>100, 0, self.forestFrac)
         #%%ADDED BY JOREN:STOP
         # if "snowTransport" in list(self.iniItemsLC.keys()):
         #     if self.iniItemsLC['snowTransport'] == "False": self.snowTransport = False
@@ -1164,6 +1172,7 @@ class LandCover(object):
         # TODO: Define other snow modules
         
         #%% ADDED BY JOREN: START
+        #Run the new snow module.
         elif self.snowModuleType  == "Alpine": sn.snowMeltSlaterAndClark(self, meteo,currTimeStep)
         #%% ADDED BY JOREN: STOP
             
@@ -1392,6 +1401,7 @@ class LandCover(object):
                                                                          # But Rens put it in his "meteo" module in order to allow snowfallCorrectionFactor (SFCF).
         
         #ADDED BY JOREN: START
+        #Run snow fall transition if necessary.
         if self.snowfallTransition==True:
             sn.updateSnowFall(self, meteo,currTimeStep)
             estimSnowfall=self.estimSnowfall
@@ -2167,19 +2177,24 @@ class LandCover(object):
             elif self.preferentialFlow == True:
                 print("-------APPLYING PREFERENTIAL FLOW!!!!--------------------")
                 #Parameters from Rahman and Rosolem, 2017 for Chalk!!
-                #S0=0.8 --> related to Matric suction. Psi=-0.5
-                psi0=1.15
-                self.S0Upp = (psi0/self.parameters.airEntryValueUpp)**(-1/self.parameters.poreSizeBetaUpp)
-                self.S0Low = (psi0/self.parameters.airEntryValueLow)**(-1/self.parameters.poreSizeBetaLow)
-                self.S0Upp = pcr.min(self.S0Upp, 1.0)
-                self.S0Low = pcr.min(self.S0Low, 1.0)
-                self.S0Upp = pcr.max(self.S0Upp, 0.)
-                self.S0Low = pcr.max(self.S0Low, 0.)
+                S0=0.8 #--> related to Matric suction. Psi=-0.5
+                fm=4 #From Zehe et al., 2013; #1e5 (between 1 and 4)
+                self.S0Upp = S0
+                self.S0Low = S0
+
+                #psi0=1.15
+                #self.S0Upp = (psi0/self.parameters.airEntryValueUpp)**(-1/self.parameters.poreSizeBetaUpp)
+                #self.S0Low = (psi0/self.parameters.airEntryValueLow)**(-1/self.parameters.poreSizeBetaLow)
+                #self.S0Upp = pcr.min(self.S0Upp, 1.0)
+                #self.S0Low = pcr.min(self.S0Low, 1.0)
+                #self.S0Upp = pcr.max(self.S0Upp, 0.)
+                #self.S0Low = pcr.max(self.S0Low, 0.)
                 
-                fm=1e5
                 
-                modifiedKSatUpp=pcr.ifthenelse(pcr.pcrand(self.effSatUpp>self.S0Upp, self.maxRootDepth>1), self.parameters.kSatUpp+self.parameters.kSatUpp*fm*(self.effSatUpp-self.S0Upp)/(1-self.S0Upp), self.parameters.kSatUpp)
-                modifiedKSatLow=pcr.ifthenelse(pcr.pcrand(self.effSatLow>self.S0Low, self.maxRootDepth>1), self.parameters.kSatLow+self.parameters.kSatLow*fm*(self.effSatLow-self.S0Low)/(1-self.S0Low), self.parameters.kSatLow)
+                modifiedKSatUpp=pcr.ifthenelse(self.effSatUpp>self.S0Upp, self.parameters.kSatUpp+self.parameters.kSatUpp*fm*(self.effSatUpp-self.S0Upp)/(1-self.S0Upp)*self.forestFrac/100, self.parameters.kSatUpp)
+                modifiedKSatLow=pcr.ifthenelse(self.effSatLow>self.S0Low, self.parameters.kSatLow+self.parameters.kSatLow*fm*(self.effSatLow-self.S0Low)/(1-self.S0Low)*self.forestFrac/100, self.parameters.kSatLow)
+                #modifiedKSatUpp=pcr.ifthenelse(pcr.pcrand(self.effSatUpp>self.S0Upp, self.maxRootDepth>1), self.parameters.kSatUpp+self.parameters.kSatUpp*fm*(self.effSatUpp-self.S0Upp)/(1-self.S0Upp), self.parameters.kSatUpp)
+                #modifiedKSatLow=pcr.ifthenelse(pcr.pcrand(self.effSatLow>self.S0Low, self.maxRootDepth>1), self.parameters.kSatLow+self.parameters.kSatLow*fm*(self.effSatLow-self.S0Low)/(1-self.S0Low), self.parameters.kSatLow)
                 
                 self.kUnsatUpp = pcr.max(0.,(self.effSatUpp**\
                             self.parameters.campbellBetaUpp)*modifiedKSatUpp)        # original Rens's code: KTHEFF1= max(0,THEFF1**BCB1[TYPE]*KS1[TYPE])

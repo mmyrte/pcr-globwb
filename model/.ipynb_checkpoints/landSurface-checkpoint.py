@@ -366,8 +366,10 @@ class LandSurface(object):
             
         #Glacier Module
         if self.glacierModule:
+            #Initialize glaciers
             gl.initializeGlacier(self, iniItems)
         else:
+            #Still initialize empty variables for the water balance check, even if no glaciers are used.
             self.glacierized=pcr.scalar(0)
             self.glacierWater=pcr.scalar(0)
             self.glacierIce=pcr.scalar(0)
@@ -376,6 +378,7 @@ class LandSurface(object):
         self.yearlyIceMelt=pcr.scalar(0)
         self.yearlyGlacierAcc=pcr.scalar(0)
 
+        #Return glacier parameters to landCover types.
         for coverType in self.coverTypes: 
             self.landCoverObj[coverType].glacierized=self.glacierized
             self.landCoverObj[coverType].glacierIce=self.glacierIce
@@ -1486,33 +1489,61 @@ class LandSurface(object):
         #--------CHANGED BY JOREN: START--------------------------------------------------------
         #----UPDATE THE GLACIERS HERE:-------------------------------------------
         if (self.glacierModule==True):
-            
+
+            #If we do a water balance check, store glacierIce of previous time step.
             if self.debugWaterBalance:
                 prevGlacierIce    = self.glacierIce
                 #prevStates        = [self.snowCoverSWE,self.snowFreeWater, self.glacierIce, self.glacierWater]
-                
+
+            
             if (self.glacierType=='delta_H'):
                 logger.info('DELTA H GLACIERS: Checks if we need to perform delta_H.....')
+                
+                #Initialize AccuCorrection (even if not used) and glacierDifference (for water balance check)
                 self.glacierAccuCorrection=pcr.scalar(0.0)
                 self.glacierDifference=pcr.scalar(0.0)
-                #Run only the first of October!
-                if currTimeStep.doy==274:
-
+                #Run only the first of September!
+                if currTimeStep.doy==245:
                     logger.info('DELTA H GLACIERS: Yes we do! Updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
 
-                    #We need to do a water balance check
+                    #Print last years information per landCover type (should be the same)
+                    for coverType in self.coverTypes: 
+                        print(coverType)
+                        #self.landCoverObj[coverType].yearlyIceMelt
+                        #self.landCoverObj[coverType].yearlyGlacierAcc
+
+                        a,b,c =vos.getMinMaxMean(pcr.spatial(self.landCoverObj[coverType].yearlyIceMelt))
+                        msg = "BEFORE: Glacier yearlyIceMelt initialized: Min %f Max %f Mean %f" %(a,b,c)
+                        logger.info(msg)
+
+                        a,b,c =vos.getMinMaxMean(pcr.spatial(self.landCoverObj[coverType].yearlyGlacierAcc))
+                        msg = "BEFORE: self.yearlyGlacierAcc initialized: Min %f Max %f Mean %f" %(a,b,c)
+                        logger.info(msg)
+
+                    #Update the glaciers.
                     gl.updateDeltaH(self, currTimeStep)
 
                     logger.info('DELTA H GLACIERS: Finished with updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
 
+                    #Calculate glacier difference
                     self.glacierDifference=(self.glacierIce-prevGlacierIce)*self.cellArea
 
+                    #Return glacier variables to different landCover types
                     for coverType in self.coverTypes:            
                         logger.info("DELTA H GLACIERS: Returning glacier vars to: "+str(coverType))
                         self.landCoverObj[coverType].snowCoverSWE+=self.glacierAccuCorrection
                         self.landCoverObj[coverType].yearlyIceMelt=self.yearlyIceMelt
                         self.landCoverObj[coverType].yearlyGlacierAcc=self.yearlyGlacierAcc
-                        
+
+                        a,b,c =vos.getMinMaxMean(pcr.spatial(self.yearlyIceMelt))
+                        msg = "Glacier yearlyIceMelt initialized: Min %f Max %f Mean %f" %(a,b,c)
+                        logger.info(msg)
+
+                        a,b,c =vos.getMinMaxMean(pcr.spatial(self.yearlyGlacierAcc))
+                        msg = "self.yearlyGlacierAcc initialized: Min %f Max %f Mean %f" %(a,b,c)
+                        logger.info(msg)
+
+            
             elif  self.glacierType=='Static':
                 logger.info('STATIC GLACIERS: Resetting Glacier Shape.....')
                 #Ice shape has to be reset every time step, so that glaciers do not dissappear. However, to fix the water balance, this difference has to come from somewhere.
@@ -1521,6 +1552,7 @@ class LandSurface(object):
                 
             elif (self.glacierType=='Immerzeel'):
                 logger.info('IMMERZEEL GLACIERS: Sliding following Immerzeel et al., 2012.....')
+                #Perform glacier sliding.
                 gl.glacierSlideImmerzeel(self, currTimeStep)
 
         
@@ -1533,7 +1565,6 @@ class LandSurface(object):
         
         #----UPDATE THE GLACIERS HERE: STOP--------------------------------------
         #--------CHANGED BY JOREN: STOP--------------------------------------------------------
-        
         
         
         # update (loop per each land cover type):
