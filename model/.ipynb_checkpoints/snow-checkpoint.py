@@ -299,7 +299,7 @@ def snowMeltSlaterAndClark(self, meteo,currTimeStep):
         self.snowFreeWater    = pcr.max(0., self.snowFreeWater - \
                                             self.netLqWaterToSoil)      # SCF_L[TYPE] = max(0,SCF_L[TYPE]-Pn)
         
-        self.netLqWaterToSoil=self.netLqWaterToSoil+self.netGlacierWaterToSoil
+        self.netLqWaterToSoil=self.netLqWaterToSoil#+self.netGlacierWaterToSoil
         
     # update snowFreeWater = liquid water stored above snowCoverSWE
     else:
@@ -374,7 +374,7 @@ def snowMeltSlaterAndClark(self, meteo,currTimeStep):
                                currTimeStep.fulldate,threshold=1e-4)
 
         vos.waterBalanceCheck([self.liquidPrecip-self.rain2GlacierWater, -1*deltaSnowCover],
-                              [self.actSnowFreeWaterEvap, self.netLqWaterToSoil-self.netGlacierWaterToSoil, self.snow2GlacierWater, self.capacity2GlacierWater],
+                              [self.actSnowFreeWaterEvap, self.netLqWaterToSoil, self.snow2GlacierWater, self.capacity2GlacierWater],
                               [prevSnowFreeWater],\
                               [self.snowFreeWater],\
                               'snowFreeWater',\
@@ -383,7 +383,7 @@ def snowMeltSlaterAndClark(self, meteo,currTimeStep):
         
 
         vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.glacierAccumulation, self.capacity2GlacierWater],
-                              [self.glacierOutflow, self.netGlacierWaterToSoil],
+                              [self.glacierOutflow],
                               prevGlacierModule,\
                               [self.glacierIce, self.glacierWater],\
                               'glacierModule local',\
@@ -393,7 +393,7 @@ def snowMeltSlaterAndClark(self, meteo,currTimeStep):
             
             
         vos.waterBalanceCheck([self.rain2GlacierWater, self.snow2GlacierWater, self.iceMelt, self.capacity2GlacierWater],
-                              [self.glacierOutflow, self.netGlacierWaterToSoil],
+                              [self.glacierOutflow],
                               [prevGlacierWater],\
                               [self.glacierWater],\
                               'glacierWater',\
