@@ -639,6 +639,19 @@ class Reporting(object):
 
         self.snowCoverSWE  = self._model.landSurface.snowCoverSWE
         self.snowFreeWater = self._model.landSurface.snowFreeWater
+        
+        #ADDED BY JOREN: START
+        #SnowSlide
+        self.incomingVolSnow= self._model.landSurface.incomingVolSnow
+        self.transportVolSnow= self._model.landSurface.transportVolSnow
+        self.snowfall= self._model.landSurface.snowfall
+        #Glacier
+        self.glacierIce= self._model.landSurface.glacierIce
+        self.glacierWater= self._model.landSurface.glacierWater
+        self.glacierOutflow= self._model.landSurface.glacierOutflow
+        self.iceMelt= self._model.landSurface.iceMelt
+        self.glacierAccumulation= self._model.landSurface.glacierAccumulation
+        #ADDED BY JOREN: STOP
 
         self.topWaterLayer = self._model.landSurface.topWaterLayer
         self.storUppTotal  = self._model.landSurface.storUppTotal
