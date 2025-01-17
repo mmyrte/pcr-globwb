@@ -1,5 +1,3 @@
-name: pcrglobwb_python3
-
 channels:
   - conda-forge
 dependencies:
@@ -10,10 +8,7 @@ dependencies:
   - six  
   - zlib
   - pcraster>=4.4.0
-  - pip:
-    - netcdf4>=1.5.3
+  - netcdf4>=1.5.3
   - cdo
   - nco
   - ncview
-  
-# Note: You may want to exclude cdo, nco, and ncview.
