@@ -64,3 +64,4 @@ target/
 .mamba/
 .conda/
 .venv/
+.ipynb_checkpoints
