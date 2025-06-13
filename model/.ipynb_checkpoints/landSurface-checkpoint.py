@@ -1491,12 +1491,13 @@ class LandSurface(object):
         if (self.glacierModule==True):
 
             #If we do a water balance check, store glacierIce of previous time step.
-            if self.debugWaterBalance:
-                prevGlacierIce    = self.glacierIce
-                #prevStates        = [self.snowCoverSWE,self.snowFreeWater, self.glacierIce, self.glacierWater]
+            #if self.debugWaterBalance:
+            prevGlacierIce    = self.glacierIce
+            prevGlacierWater  = self.glacierWater
+            #prevStates        = [self.snowCoverSWE,self.snowFreeWater, self.glacierIce, self.glacierWater]
 
             
-            if (self.glacierType=='delta_H'):
+            if (self.glacierType=='delta_H') & (currTimeStep.year>1999):
                 logger.info('DELTA H GLACIERS: Checks if we need to perform delta_H.....')
                 
                 #Initialize AccuCorrection (even if not used) and glacierDifference (for water balance check)
@@ -1526,7 +1527,7 @@ class LandSurface(object):
                     logger.info('DELTA H GLACIERS: Finished with updating Delta H! (Huss et al., 2010; Seibert et al., 2018).........')
 
                     #Calculate glacier difference
-                    self.glacierDifference=(self.glacierIce-prevGlacierIce)*self.cellArea
+                    self.glacierDifference=(self.glacierIce-prevGlacierIce)*self.cellArea + (self.glacierWater - prevGlacierWater) *self.cellArea
 
                     #Return glacier variables to different landCover types
                     for coverType in self.coverTypes:            
@@ -1543,8 +1544,13 @@ class LandSurface(object):
                         msg = "self.yearlyGlacierAcc initialized: Min %f Max %f Mean %f" %(a,b,c)
                         logger.info(msg)
 
+            elif (self.glacierType=='delta_H') & (currTimeStep.year<2000):
+                logger.info('STATIC GLACIERS BEFORE 2000: Resetting Glacier Shape.....')
+                #Ice shape has to be reset every time step, so that glaciers do not dissappear. However, to fix the water balance, this difference has to come from somewhere.
+                self.glacierDifference=(self.glacierIce_ini-self.glacierIce)*self.cellArea
+                self.glacierIce=self.glacierIce_ini
             
-            elif  self.glacierType=='Static':
+            elif self.glacierType=='Static':
                 logger.info('STATIC GLACIERS: Resetting Glacier Shape.....')
                 #Ice shape has to be reset every time step, so that glaciers do not dissappear. However, to fix the water balance, this difference has to come from somewhere.
                 self.glacierDifference=(self.glacierIce_ini-self.glacierIce)*self.cellArea
@@ -1597,7 +1603,7 @@ class LandSurface(object):
         
         if (self.glacierModule==True):
             if self.debugWaterBalance:
-                if (self.glacierType=='delta_H'):
+                if (self.glacierType=='delta_H') & (currTimeStep.year>1999):
                     logger.info('WBCHECK including GlacierModule: delta H')
 
                     self.glacierOutgoing=pcr.scalar(0)
@@ -1608,13 +1614,16 @@ class LandSurface(object):
                     # so also glacierIncoming (=the shape change) needs to be corrected. TIMES CELL AREA!
                     # Note: prevGlacierIce already included mass gain throughout the year
 
-                    self.glacierIncoming=self.glacierDifference+self.glacierAccuCorrection*self.cellArea
+                    self.glacierIncoming=self.glacierDifference#+self.glacierAccuCorrection*self.cellArea
                     self.glacierAccumulation-=self.glacierAccuCorrection
                 
                 elif self.glacierType=='Static':
                     self.glacierOutgoing=pcr.scalar(0)
                     self.glacierIncoming=self.glacierDifference
                     
+                elif (self.glacierType=='delta_H') & (currTimeStep.year<2000):
+                    self.glacierOutgoing=pcr.scalar(0)
+                    self.glacierIncoming=self.glacierDifference
                     
             vos.waterBalanceCheck([self.glacierAccumulation, self.glacierIncoming/self.cellArea],
                               [self.iceMelt, self.glacierOutgoing/self.cellArea],

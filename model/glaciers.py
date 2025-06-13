@@ -134,25 +134,31 @@ def updateStaticGlacier(self, meteo, currTimeStep):
     #    print(msg)
     
     #Calculate Glacier Accumulation on before first of September.
-    if currTimeStep.doy==244:
+    #if currTimeStep.doy==244:
         #self.glacierAccumulation=pcr.ifthenelse(self.snowCoverSWE>self.acclim, self.AccEfficiency*self.glacierized*self.snowCoverSWE, 0)
-        self.glacierAccumulation=pcr.ifthenelse(self.snowCoverSWE>self.acclim, self.snowCoverSWE-self.acclim, 0)
-        self.glacierIce+=self.glacierAccumulation
-        self.snowCoverSWE-=self.glacierAccumulation
+        #self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.snowCoverSWE-self.acclim, 0) #Original, as used in preprint
+    #    self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.snowCoverSWE*self.acclim, 0) #New, move 90 percent only
+    #    self.glacierIce+=self.glacierAccumulation
+    #    self.snowCoverSWE-=self.glacierAccumulation
 
-        a,b,c =vos.getMinMaxMean(pcr.spatial(DDFGlacier))
-        msg = "GlacierDDF initialized: Min %f Max %f Mean %f" %(a,b,c)
-        logger.info(msg)
-        print(msg)
-    else:
-        self.glacierAccumulation=pcr.scalar(0.0)
+    #    self.glacierWaterAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.snowFreeWater*self.acclim, 0) #Water in the snow is also considered to refreeze and become accumulation, move 90 percent only
 
-    #HBV START
-    #For HBV
-    #self.AccEfficiency=self.acclim
-    #self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.AccEfficiency*self.snowCoverSWE, 0)
-    #self.glacierIce+=self.glacierAccumulation
-    #self.snowCoverSWE-=self.glacierAccumulation
+    #    self.glacierAccumulation+=self.glacierWaterAccumulation
+    #    self.snowFreeWater-=self.glacierWaterAccumulation
+        
+    #    a,b,c =vos.getMinMaxMean(pcr.spatial(DDFGlacier))
+    #    msg = "GlacierDDF initialized: Min %f Max %f Mean %f" %(a,b,c)
+    #    logger.info(msg)
+    #    print(msg)
+    #else:
+    #    self.glacierAccumulation=pcr.scalar(0.0)
+
+    #Calculate Glacier accumulation in the original HBV way
+    self.AccEfficiency=self.acclim
+    self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.AccEfficiency*self.snowCoverSWE, 0) # Original HBV
+    ##self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), pcr.max(self.AccEfficiency*self.snowCoverSWE, 0.005), 0) # Original HBV with minimum of 0.005 per day! --> This should avoid creating a permanent snow layer on glaciers...
+    self.glacierIce+=self.glacierAccumulation
+    self.snowCoverSWE-=self.glacierAccumulation
     
         
     #Ice Melt
@@ -219,7 +225,6 @@ def updateStaticGlacier(self, meteo, currTimeStep):
     #Calculate Outflow, to be added to directRunoff.
     self.glacierOutflow=pcr.min(self.glacierWater, self.glacierWater*(self.Kmin+self.Krange*pcr.exp(-1*self.Ag*self.snowCoverSWE))*self.glacierized)
     self.glacierWater=pcr.max(0, self.glacierWater-self.glacierOutflow)
-
 
     #In case water there is too much water in the glacier (should not happen), create additional outflow
     self.netGlacierWaterExcess = pcr.max(0., self.glacierWater - \
@@ -429,6 +434,23 @@ def updateDeltaH(self, currTimeStep):
     self.glacierIceYS=self.glacierIce
     self.yearlyIceMelt=pcr.scalar(0.0)
     self.yearlyGlacierAcc=pcr.scalar(0.0)
+
+    #What to do if glaciers have too much water? --> We keep it in the glacierWater storage.
+    #Glacier capacity
+    #glacierWaterHoldingCap= 0.1
+    
+    #exceedingWater = pcr.max(0., self.glacierWater - \
+    #                glacierWaterHoldingCap * self.glacierIce) #This leads to an excess release of water later: we now add it the water reservoirs anyware else.
+    #self.glacierWater=self.glacierWater - exceedingWater #Remove this water
+    #self.glacierWater=pcr.max(self.glacierWater, 0.0)
+    
+    #exceedingWater=pcr.areatotal(exceedingWater, self.glacierNumber) #Sum the exceeding water over the area
+    #exceedingWater=pcr.ifthenelse(glacierIceNew>0, exceedingWater*self.cellArea, 0) #We need to divide it only over the area where there is now glacier.
+    #addWater=pcr.ifthenelse((exceedingWater)>1e-3, pcr.scalar(exceedingWater*ratio)/self.cellArea, 0.0) #Division based on ice thickness.
+    
+    
+    #self.glacierWater=self.glacierWater + addWater #Add the new glacier water
+    #self.glacierWater=pcr.max(self.glacierWater, 0.0)
     logger.info('Finished with delta H!!.......')
     
 

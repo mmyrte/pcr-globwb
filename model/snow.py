@@ -425,7 +425,9 @@ def simplifiedFreyAndHolzmann_pcraster(self, currTimeStep):
         #    print('Today with transport on Glaciers!!....')
         #else:
         #    logger.info('No Transport on Glaciers!!....')
-        #    exceedingSnow=pcr.ifthenelse(self.glacierized>0, 0.0, exceedingSnow)
+
+    #No transport on glaciers!!! Otherwise they don't get enough accumulation...
+    exceedingSnow=pcr.ifthenelse(self.glacierized>0, 0.0, exceedingSnow)
     
     #Convert everything to volumes
     transportVolSnow=pcr.max(exceedingSnow*self.cellArea, 0.0)
