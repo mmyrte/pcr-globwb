@@ -125,6 +125,20 @@ def initializeSnow(self, iniItems):
         #Read LDD Map
         self.lddMap = vos.readPCRmapClone(iniItems.routingOptions['lddMap'],\
                                         self.cloneMap,self.tmpDir,self.inputDir,True)
+
+        # Start: needed for transport issue
+        # landmask:
+        if iniItems.globalOptions['landmask'] != "None":
+           self.landmask = vos.readPCRmapClone(\
+           iniItems.globalOptions['landmask'],
+           self.cloneMap,self.tmpDir,self.inputDir)
+        else:       
+           self.landmask = pcr.defined(self.lddMap)
+        self.landmask = pcr.ifthen(pcr.defined(self.lddMap), self.landmask)
+        self.landmask = pcr.cover(self.landmask, pcr.boolean(0)) 
+        self.lddMap=pcr.lddmask(self.lddMap, self.landmask) 
+        # End: needed for transport issue
+        
         self.lddMap = pcr.lddrepair(pcr.ldd(self.lddMap))
         self.lddMap = pcr.lddrepair(self.lddMap)
 

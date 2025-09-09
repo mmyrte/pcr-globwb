@@ -391,7 +391,7 @@ def updateDeltaH(self, currTimeStep):
     ratio=glacierIceNew/Mnew #We need to divide it only over the area where there is now glacier.
     
     glacierGap=pcr.ifthenelse(glacierIceNew>0, glacierGap, 0) #We need to divide it only over the area where there is now glacier.
-    glacierDiff=pcr.ifthenelse(pcr.pcrand(pcr.ordinal(frac)!=100, pcr.abs(glacierGap)>1e-3), pcr.scalar(glacierGap*ratio), 0.0) #Division based on ice thickness.
+    glacierDiff=pcr.ifthenelse(pcr.pcrand(pcr.ordinal(frac)!=pcr.ordinal(100), pcr.abs(glacierGap)>1e-3), pcr.scalar(glacierGap*ratio), 0.0) #Division based on ice thickness.
     
     glacierDiff=pcr.cover(glacierDiff, 0.0) #Make sure no NaNs exist (due to ratio?)
     glacierGap=pcr.cover(glacierGap, 0.0) #Make sure no NaNs exist (due to ratio?)

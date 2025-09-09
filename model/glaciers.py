@@ -391,7 +391,7 @@ def updateDeltaH(self, currTimeStep):
     ratio=glacierIceNew/Mnew #We need to divide it only over the area where there is now glacier.
     
     glacierGap=pcr.ifthenelse(glacierIceNew>0, glacierGap, 0) #We need to divide it only over the area where there is now glacier.
-    glacierDiff=pcr.ifthenelse(pcr.pcrand(pcr.ordinal(frac)!=100, pcr.abs(glacierGap)>1e-3), pcr.scalar(glacierGap*ratio), 0.0) #Division based on ice thickness.
+    glacierDiff=pcr.ifthenelse(pcr.pcrand(pcr.ordinal(frac)!=pcr.ordinal(100), pcr.abs(glacierGap)>1e-3), pcr.scalar(glacierGap*ratio), 0.0) #Division based on ice thickness.
     
     glacierDiff=pcr.cover(glacierDiff, 0.0) #Make sure no NaNs exist (due to ratio?)
     glacierGap=pcr.cover(glacierGap, 0.0) #Make sure no NaNs exist (due to ratio?)
@@ -399,10 +399,10 @@ def updateDeltaH(self, currTimeStep):
 
     #Glaciers can not grow beyond their original extend.
     #Transport additional accumulation (larger than initial state) downstream.
-    positiveGap=pcr.ifthenelse(pcr.pcror((frac<0), pcr.pcrand((frac==0),(glacierGap>0))), glacierDiff, 0.0)
-    glacierDiff=pcr.ifthenelse(pcr.pcror((frac<0), pcr.pcrand((frac==0),(glacierGap>0))), 0, glacierDiff)
+    positiveGap=pcr.ifthenelse(pcr.pcror((frac<pcr.ordinal(0)), pcr.pcrand((frac==pcr.ordinal(0)),(glacierGap>0))), glacierDiff, 0.0) #Added pcr.ordinal(0) as a bug fix for multi-core processing.
+    glacierDiff=pcr.ifthenelse(pcr.pcror((frac<pcr.ordinal(0)), pcr.pcrand((frac==pcr.ordinal(0)),(glacierGap>0))), 0, glacierDiff)
     
-    glacierDiff=pcr.ifthenelse(pcr.pcror((frac<0), pcr.pcrand((frac==0),(glacierGap>0))), 0, glacierDiff)
+    glacierDiff=pcr.ifthenelse(pcr.pcror((frac<pcr.ordinal(0)), pcr.pcrand((frac==pcr.ordinal(0)),(glacierGap>0))), 0, glacierDiff)
     transportFraction=pcr.ifthenelse(self.glacierIce>0, pcr.scalar(1), pcr.scalar(0)) #All ice is transported downwards
     added = pcr.accufractionstate(self.lddMap, positiveGap*self.cellArea, transportFraction)
     added=added/self.cellArea
