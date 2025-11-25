@@ -11,6 +11,12 @@ import glaciers as gl
 
 
 def initializeSnow(self, iniItems):
+    """
+    Initialize the snow module: reads boolean variables from configuration file and translates these to the code. If snow redistribution is applied, it can also load additional relevant data.
+
+    self: landCover object
+    iniItems: iniItems from landCover module
+    """
     logger.info("Initialising Snow Extended...")
     #Initialize snow module.
     #First, a range of boolean parameters to specify how the snow module should work.
@@ -203,6 +209,14 @@ def initializeSnow(self, iniItems):
         
 
 def updateSnowFall(self, meteo,currTimeStep):
+    """
+    Divide the incoming precipitation into snowfall and rainfall. This uses the snow-to-rain transition range from Magnusson et al., 2014.
+
+    self: landCover object
+    meteo: meteo object
+    currTimeStep: object containing information on the data
+    """
+
     #Apply a transition range between solid and liquid precipitation.
     logger.info('Snowfall transition range!')
     
@@ -217,6 +231,14 @@ def updateSnowFall(self, meteo,currTimeStep):
         self.estimSnowfall=pcr.ifthenelse(self.glacierIce>0, self.estimSnowfall*self.snowfallCorrection, self.estimSnowfall)
 
 def snowMeltSlaterAndClark(self, meteo,currTimeStep):
+    """
+    Running the actual snow module. Based on the initial condition specified in the configuration files, it can make the degree-day factor (DDF) vary with season (Slater and Clark, 2006), or albedo and add a precipitation melt term (Kraaijenbrink et al., 2021).
+
+    self: landCover object
+    meteo: meteo object
+    currTimeStep: object containing information on the data
+    """
+
     logger.info('Starting with the snow module!')
                     
     if self.debugWaterBalance:
@@ -428,18 +450,18 @@ def snowMeltSlaterAndClark(self, meteo,currTimeStep):
 
 
 def simplifiedFreyAndHolzmann_pcraster(self, currTimeStep):
-    logger.info('Starting with Frey and Holzmann PCRASTER: let\'s see how far we get....')
+    """
+    Runs a simple snow redistribution scheme based on Frey and Holzmann, 2015.
+    
+    self: landCover object
+    currTimeStep: object containing information on the data
+    """
+
+    logger.info('Starting with Frey and Holzmann PCRASTER')
     
     #TRANSPORT SNOW
     #Check where snow exceeds the threshold.
     exceedingSnow=pcr.max(self.snowCoverSWE-self.Hv, 0.0)
-    #if self.glacierModule==True:
-        #if currTimeStep.doy==275:
-        #if (currTimeStep.doy>=275) & (currTimeStep.doy<=300):
-        #    logger.info('Today with transport on Glaciers!!....')
-        #    print('Today with transport on Glaciers!!....')
-        #else:
-        #    logger.info('No Transport on Glaciers!!....')
 
     #No transport on glaciers!!! Otherwise they don't get enough accumulation...
     exceedingSnow=pcr.ifthenelse(self.glacierized>0, 0.0, exceedingSnow)
@@ -468,7 +490,7 @@ def simplifiedFreyAndHolzmann_pcraster(self, currTimeStep):
     #Compute new snow cover
     self.snowCoverSWE = self.snowCoverSWE-self.transportVolSnow/self.cellArea+self.incomingVolSnow/self.cellArea
     
-    logger.info('Finished with Frey and Holzmann PCRASTER! Impressive..')
+    logger.info('Finished with Frey and Holzmann PCRASTER!')
             
 
 

@@ -3140,7 +3140,6 @@ class LandCover(object):
         self.topWaterLayer = pcr.max(0.0, self.topWaterLayer - self.directRunoff)
 
     def improvedArnoScheme(self, iniWaterStorage, inputNetLqWaterToSoil, directRunoffReductionMethod = "Default"):
-        #JOREN!!
         #a,b,c =vos.getMinMaxMean(self.arnoBeta)
         #msg = "ArnoBeta 3: Min %f Max %f Mean %f" %(a,b,c)
         #logger.info(msg)

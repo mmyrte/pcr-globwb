@@ -11,6 +11,8 @@ from ncConverter import *
 
 def initializeGlacier(self, iniItems):
     """
+    Initialize the glacier module: reads boolean variables from configuration file and translates these to the code. Depending on the glacier module chosen, it also reads additional relevant input data.
+
     self: landSurface object
     iniItems: iniItems from landSurface module
     """
@@ -70,7 +72,7 @@ def initializeGlacier(self, iniItems):
         self.yearlyGlacierAcc=pcr.scalar(0.0)
         self.glacierIceYS=self.glacierIce
         
-        
+        #Do we need to initialize deltaH?
         if "ini_dH" in list(self.iniItems.landSurfaceOptions.keys()):
             if self.iniItems.landSurfaceOptions['ini_dH'] == "True": self.ini_dH = True
             elif self.iniItems.landSurfaceOptions['ini_dH'] == "False": self.ini_dH = False
@@ -99,7 +101,7 @@ def initializeGlacier(self, iniItems):
         self.zonalDistance=self.cellArea/self.verticalSizeInMeter
         self.verticalSizeInMeter=float(self.verticalSizeInMeter)
 
-        #Copied from routing; as a first guess
+        #Copied from routing:
         # channelLength = approximation of channel length (unit: m)
         # This is approximated by cell diagonal.                     
         self.cellLengthFD  = ((self.cellArea/self.verticalSizeInMeter)**(2)+\
@@ -119,21 +121,30 @@ def initializeGlacier(self, iniItems):
     #logger.info("Reshaping Glaciers...")
     
 def updateStaticGlacier(self, meteo, currTimeStep):
+    """
+    Day to day updates of the glacier module: calculating glacier melt and accumulation.
+
+    self: landCover object
+    meteo: meteo object
+    currTimeStep: object containing information on the data
+    """
     #Empirical constants
     #Glacier capacity
     glacierWaterHoldingCap=self.snowWaterHoldingCap
-    #acclim=0 #minimum snow thickness needed for Accumulation [m]
 
     #Calculate melt rate of glacier by multiplying snow melt with a glacier factor; e.g. see Stahl et al., 2008; Seibert et al., 2018
     DDFGlacier=pcr.max(self.degreeDayFactor+self.degreeDayAmplitude*np.sin((currTimeStep.doy-81)*2*np.pi/366), 0.0)*self.degreeDayFactorGlacier
 
-    #if currTimeStep.doy==30:
-    #    a,b,c =vos.getMinMaxMean(pcr.spatial(DDFGlacier))
-    #    msg = "Day:81: GlacierDDF initialized: Min %f Max %f Mean %f" %(a,b,c)
-    #    logger.info(msg)
-    #    print(msg)
     
-    #Calculate Glacier Accumulation on before first of September.
+    #How do we want to calculate accumulation?
+    #1. Calculate Glacier accumulation in the original HBV way
+    self.AccEfficiency=self.acclim 
+    self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.AccEfficiency*self.snowCoverSWE, 0) # Original HBV
+    ##self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), pcr.max(self.AccEfficiency*self.snowCoverSWE, 0.005), 0) # Original HBV with minimum of 0.005 per day! --> This should avoid creating a permanent snow layer on glaciers...
+    self.glacierIce+=self.glacierAccumulation
+    self.snowCoverSWE-=self.glacierAccumulation
+
+    #2. Calculate Glacier Accumulation on before first of September.
     #if currTimeStep.doy==244:
         #self.glacierAccumulation=pcr.ifthenelse(self.snowCoverSWE>self.acclim, self.AccEfficiency*self.glacierized*self.snowCoverSWE, 0)
         #self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.snowCoverSWE-self.acclim, 0) #Original, as used in preprint
@@ -153,38 +164,6 @@ def updateStaticGlacier(self, meteo, currTimeStep):
     #else:
     #    self.glacierAccumulation=pcr.scalar(0.0)
 
-    #Calculate Glacier accumulation in the original HBV way
-    self.AccEfficiency=self.acclim
-    self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), self.AccEfficiency*self.snowCoverSWE, 0) # Original HBV
-    ##self.glacierAccumulation=pcr.ifthenelse(pcr.pcrand(self.glacierized>0.0, self.snowCoverSWE>0.0), pcr.max(self.AccEfficiency*self.snowCoverSWE, 0.005), 0) # Original HBV with minimum of 0.005 per day! --> This should avoid creating a permanent snow layer on glaciers...
-    self.glacierIce+=self.glacierAccumulation
-    self.snowCoverSWE-=self.glacierAccumulation
-    
-        
-    #Ice Melt
-    #To Do: make melt different from snow; Add rain?
-    #if self.seasonalMelt:
-    #    self.iceMelt = \
-    #        pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingT),(self.snowCoverSWE>0.0)), \
-    #        0.0, \
-    #       pcr.min(self.glacierIce, \
-    #                self.glacierized*pcr.max(meteo.temperature - self.freezingT, 0.0)*(self.degreeDayFactor+self.degreeDayAmplitude*np.sin((currTimeStep.doy-81)*2*np.pi/366))))
-    #else:
-
-    #if self.freezingTGlacier==False:
-    #    self.freezingTGlacier=self.freezingT        
-    
-    # self.iceMelt = \
-    #     pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingTGlacier),(self.snowCoverSWE>0.0)), \
-    #     0.0, \
-    #    pcr.min(self.glacierIce, \
-    #             self.glacierized*pcr.max(meteo.temperature - self.freezingTGlacier, 0.0) * (self.degreeDayFactorGlacier)))
-    
-    #self.iceMelt = \
-    #    pcr.ifthenelse(pcr.pcror((meteo.temperature <= self.freezingTGlacier),(self.snowCoverSWE>0.0)), \
-    #    0.0, \
-    #   pcr.min(self.glacierIce, \
-    #            self.glacierized*pcr.max(meteo.temperature - self.freezingTGlacier, 0.0) * (DDFGlacier)))
 
     #Calculate iceMelt using degree day approach.
     self.iceMelt = \
@@ -235,6 +214,12 @@ def updateStaticGlacier(self, meteo, currTimeStep):
     
 
 def glacierSlideImmerzeel(self, currTimeStep):
+    """
+    Laterally transporting the glacier ice following Immerzeel et al., 2012.
+
+    self: landSurface object
+    currTimeStep: object containing information on the data
+    """
     #Calculate glacierSliding following Immerzeel et al., 2012.
     logger.info('Starting with GlacierSlideImmerzeel: let\'s see how far we get....')
     #critSWE=self.maxSWE(angle)
@@ -256,13 +241,6 @@ def glacierSlideImmerzeel(self, currTimeStep):
     a,b,c =vos.getMinMaxMean(self.glacierVelocity)
     msg = "Glacier Velocities initialized: Min %f Max %f Mean %f" %(a,b,c)
     logger.info(msg)
-    
-    #self.glacierVelocity=pcr.min(self.glacierVelocity, 3.5)
-    a,b,c =vos.getMinMaxMean(self.glacierVelocity)
-    msg = "Glacier Velocities corrected: Min %f Max %f Mean %f" %(a,b,c)
-    logger.info(msg)
-                                 
-    #U=self.glacierVelocity/self.channelLength #[cells/day]
 
     # updating (after routing)
     self.glacierIceVolume=self.glacierIce*self.cellArea
@@ -278,6 +256,12 @@ def glacierSlideImmerzeel(self, currTimeStep):
     logger.info('Finished with GlacierSlideImmerzeel: Impressive....')
 
 def updateDeltaH(self, currTimeStep):
+    """
+    Updating the delta H approach at the end of the year based on Huss et al, 2010 and Seibert et al., 2018.
+
+    self: landSurface object
+    currTimeStep: object containing information on the data
+    """
     #Perform the deltaH calculation.
     logger.info('Updating delta H.......')
 
@@ -387,7 +371,6 @@ def updateDeltaH(self, currTimeStep):
     #NOTE: also when a glacier grows more than the initial shape, it will be divided over the glacier as glacier ice!!
 
     #We only divide stuff based on the current thickness, in order to avoid melting too much in cells with hardly any ice.
-    #pcr.setglobaloption("unitcell") #--> this might have consequences?
     ratio=glacierIceNew/Mnew #We need to divide it only over the area where there is now glacier.
     
     glacierGap=pcr.ifthenelse(glacierIceNew>0, glacierGap, 0) #We need to divide it only over the area where there is now glacier.
@@ -435,149 +418,14 @@ def updateDeltaH(self, currTimeStep):
     self.yearlyIceMelt=pcr.scalar(0.0)
     self.yearlyGlacierAcc=pcr.scalar(0.0)
 
-    #What to do if glaciers have too much water? --> We keep it in the glacierWater storage.
-    #Glacier capacity
-    #glacierWaterHoldingCap= 0.1
-    
-    #exceedingWater = pcr.max(0., self.glacierWater - \
-    #                glacierWaterHoldingCap * self.glacierIce) #This leads to an excess release of water later: we now add it the water reservoirs anyware else.
-    #self.glacierWater=self.glacierWater - exceedingWater #Remove this water
-    #self.glacierWater=pcr.max(self.glacierWater, 0.0)
-    
-    #exceedingWater=pcr.areatotal(exceedingWater, self.glacierNumber) #Sum the exceeding water over the area
-    #exceedingWater=pcr.ifthenelse(glacierIceNew>0, exceedingWater*self.cellArea, 0) #We need to divide it only over the area where there is now glacier.
-    #addWater=pcr.ifthenelse((exceedingWater)>1e-3, pcr.scalar(exceedingWater*ratio)/self.cellArea, 0.0) #Division based on ice thickness.
-    
-    
-    #self.glacierWater=self.glacierWater + addWater #Add the new glacier water
-    #self.glacierWater=pcr.max(self.glacierWater, 0.0)
     logger.info('Finished with delta H!!.......')
     
 
-
-# def updateDeltaH_old(self, currTimeStep):
-#     logger.info('Updating delta H.......')
-#     mn = pcr.cellvalue(pcr.mapminimum(self.glacierNumber),1)[0]
-#     mx = pcr.cellvalue(pcr.mapmaximum(self.glacierNumber),1)[0]
-
-#     glacierIcenew=pcr.scalar(0.0)
-#     extraMelt=pcr.scalar(0.0)
-    
-#     self.glacierMB=self.yearlyGlacierAcc-self.yearlyIceMelt
-
-#     for i in range(int(mn), int(mx)+1):
-#     #for i in range(int(mn), int(mn)+30):
-#         glacierShape=self.glacierNumber==i
-#         volume_ini=pcr.ifthenelse(glacierShape, self.glacierIce_ini, 0.0)
-#         volume_ini=pcr.ifthenelse(volume_ini>0.0,volume_ini,0.0)
-#         glacierShape=volume_ini>0
-#         valid=pcr.cellvalue(pcr.maptotal(pcr.scalar(volume_ini>0)),1)[0]
-
-#         if valid==0:
-#             continue
-
-#         M=pcr.cellvalue(pcr.maptotal(volume_ini),1)[0]
-
-#         volume=pcr.ifthenelse(glacierShape, self.glacierIceYS, 0.0)
-#         volume=pcr.ifthenelse(volume>0.0,volume,0.0)
-#         Mpresent=pcr.cellvalue(pcr.maptotal(volume),1)[0]
-
-#         indivMB=pcr.ifthenelse(glacierShape, self.glacierMB, 0.0)
-#         deltaM=pcr.cellvalue(pcr.maptotal(indivMB),1)[0]
-
-#         frac_min=np.round((deltaM+Mpresent)/M,2)
-#         frac=1-frac_min
-#         if frac>1:
-#             frac=1
-
-#         #We don't want to have glacier growing when they are actually loosing mass due to round-off errors.
-#         #Therefore, in case a glacier does not move to another percentage point, we just take the old shape
-#         old_frac=1-np.round((Mpresent)/M,2)
-#         if int(frac*100)==int(old_frac*100):
-#             indivNew=self.glacierIceYS
-#         elif frac>0:
-#             indivNew=pcr.readmap("/hyclimm/gjanzing/data/glacierShape_minus"+str(int(frac*100)).zfill(2)+"M.map")
-#         elif frac<0:
-#             #print('Sir, we have caught a grower!!')
-#             indivNew=pcr.readmap("/hyclimm/gjanzing/data/glacierShape_minus00M.map")
-        
-#         #FIX: cover NaN values
-#         indivNew=pcr.cover(indivNew, 0.0)
-        
-#         newShape=pcr.ifthenelse(glacierShape, indivNew, 0.0)
-#         glacierIcenew=glacierIcenew+newShape
-
-#         Mnew=pcr.cellvalue(pcr.maptotal(newShape),1)[0]
-
-#         #To Do: what to do with extra volume??
-#         #--> add to of subtract from glacier Ice
-#         # else groundwater?
-
-#         #If difference between previous shape and new shape is larger than delta M (glacierDiff is positive),
-#         #this means that there is more melt than is observed.
-#         #Extra melt has to be added to the glacier.
-#         #And Vice Versa
-#         glacierGap=(Mpresent-Mnew)+deltaM
-
-#         #print('Mnew: '+str(Mnew))
-#         #print('actual delta: '+str(Mnew-Mpresent))
-
-#         #Only divide too much or too little melt over the glacier.
-#         #NOTE: also when a glacier grows more than the initial shape, it will be divided over the glacier as glacier ice!!
-
-#         if (frac!=1) and (abs(glacierGap)>1e-3):
-#             #We only divide stuff over places where the thickness is larger than 1, in order to prevent cells where the glacierDiff is larger than the ice thickness.
-#             area=pcr.cellvalue(pcr.maptotal(pcr.scalar(newShape>1)),1)[0]
-
-#             #If all cells are smaller than 1m, than area=1.
-#             if area==0:
-#                 area=1
-
-#             #glacierDiff=pcr.ifthenelse(glacierShape, pcr.scalar(glacierGap/area), 0.0)
-#             glacierDiff=pcr.ifthenelse(newShape>1, pcr.scalar(glacierGap/area), 0.0)
-            
-#             #Glaciers can not grow beyond their original extend. In case this happens, it is added to snow. 
-#             #This can then lead to snow towers, which could be removed by snow redistribution.
-#             #if (frac<0) or ((frac==0) and (glacierGap>0)):
-#             #    self.snowCoverSWE+=glacierDiff
-                
-#             #    #This will be overwritten anyway, right?
-#             #    self.glacierAccuCorrection+=glacierDiff
-#             #else:
-#             glacierIcenew=glacierIcenew+glacierDiff
-        
-        
-#         #Should not happen: melt is restricted to the glacier volume, right?
-#         #Should this be though??
-#         extraMelt+=pcr.min(glacierIcenew, 0.0)
-#         glacierIcenew=pcr.max(glacierIcenew, 0.0)
-        
-#         #Implement a good water balance check:..... but how?
-#         #assert pcr.cellvalue(pcr.mapminimum(pcr.scalar(extraMelt)),1)[0] >= -0.01
-    
-#     em_error = pcr.cellvalue(pcr.mapminimum(extraMelt),1)[0]
-    
-#     a,b,c =vos.getMinMaxMean(extraMelt)
-#     msg = "Extra melt: Min %f Max %f Mean %f" %(a,b,c)
-#     print(msg)
-
-#     if em_error<-1e-4:
-#         logger.info('ERROR: EXTRA MELT: '+str(em_error))
-
-#     #Update the new GlacierIce!
-#     self.glacierIce=glacierIcenew 
-#     #FIX: cover NaN values
-#     self.glacierIce=pcr.cover(self.glacierIce, 0.0)
-#     self.glacierized=pcr.scalar(self.glacierIce>0.0)
-
-#     #Re-initialize the storages over time.
-#     self.glacierIceYS=self.glacierIce
-#     self.yearlyIceMelt=pcr.scalar(0.0)
-#     self.yearlyGlacierAcc=pcr.scalar(0.0)
-#     logger.info('Finished with delta H!!.......')
 def initializeDeltaH(self):
     """
-    Initialize deltaH approach.
+    Initializing the Delta-H approach and defining the glaciers shapes when a specific fraction of the glaciers has lost its mass based on Huss et al, 2010 and Seibert et al., 2018.
+    
+    self: landSurface object
     """
     
     logger.info('Initializing Delta H parameterization....')
@@ -606,7 +454,6 @@ def initializeDeltaH(self):
     mn_elev = pcr.areaminimum(glacierElev, self.glacierNumber)
     mx_elev = pcr.areamaximum(glacierElev, self.glacierNumber)
 
-    #elev_steps=pcr.roundoff((mx_elev+50)/100)-pcr.roundoff((mn_elev-50)/100)
     elev={}
     steps=20 #Use 20 elevation bands per glacier.
     deltaElev=(pcr.roundoff((mx_elev+50)/100)-pcr.roundoff((mn_elev-50)/100))/steps*100 #Round to 100 and then divide into 20 steps. #Shouldn't divide into hundred steps, but into steps of 100....
@@ -715,146 +562,3 @@ def initializeDeltaH(self):
         fs_map=temp_volume
         fs_map=pcr.cover(fs_map, 0.0)
         pcr.report(fs_map, self.glacierDir+"glacierShape_minus"+str(int(k)).zfill(2)+"M.map")
-            
-# def initializeDeltaH(self):
-#     logger.info('Initializing Delta H parameterization....')
-
-#     mn = pcr.cellvalue(pcr.mapminimum(self.glacierNumber),1)[0]
-#     mx = pcr.cellvalue(pcr.mapmaximum(self.glacierNumber),1)[0]
-
-
-#     #fs_list=np.arange(0.01, 1, 0.01)
-#     fs_list=np.arange(0, 101, 1)
-#     #fs_list=np.arange(0, 1+1e-5, 0.1)
-#     for frac in fs_list:
-#         print(frac)
-#         fs_map=pcr.scalar(0.0)
-#         logger.info("Creating: /hyclimm/gjanzing/data/glacierShape_minus"+str(int(frac)).zfill(2)+"M.map")
-#         pcr.report(fs_map,"/hyclimm/gjanzing/data/glacierShape_minus"+str(int(frac)).zfill(2)+"M.map")
-
-#     #mn=16823
-#     #print(mx)
-#     for i in range(int(mn), int(mx)+1):
-
-#         glacierShape=self.glacierNumber==i
-#         volume=pcr.ifthenelse(glacierShape, self.glacierIce, 0.0)
-#         volume=pcr.ifthenelse(volume>0.0,volume,0.0)
-#         glacierShape=volume>0
-#         valid=pcr.cellvalue(pcr.maptotal(pcr.scalar(volume>0)),1)[0]
-
-#         if valid==0:
-#             #When there are no cells, continue
-#             continue
-
-#         M=pcr.cellvalue(pcr.maptotal(volume),1)[0]
-
-#         glacierElev=pcr.ifthenelse(glacierShape, self.highResolutionDEM, np.nan)
-#         mn_elev = pcr.cellvalue(pcr.mapminimum(glacierElev),1)[0]
-#         mx_elev = pcr.cellvalue(pcr.mapmaximum(glacierElev),1)[0]
-
-#         elevs=np.arange(int(np.round(mn_elev-50, -2)), int(np.round(mx_elev+50, -2)), 100)
-
-#         total_area=pcr.cellvalue(pcr.maptotal(pcr.scalar(glacierShape)),1)[0]
-#         #print('total_area: '+str(total_area))
-
-#         if len(elevs)>1:
-#             E_norm=[(elevs[-1]-elevs[i])/(elevs[-1]-elevs[0]) for i in range(len(elevs))]
-
-#             #Following the values given by Huss et al., 2010
-#             if total_area>=20:
-#                 a=-0.02
-#                 g=6
-#                 b=0.12
-#                 c=0
-#             elif total_area<20 and total_area>=5:
-#                 a=-0.05
-#                 g=4
-#                 b=0.19
-#                 c=0.01
-#             elif total_area<5:
-#                 a=-0.3
-#                 g=2
-#                 b=0.6
-#                 c=0.09
-
-#             dH=[(E+a)**g+b*(E+a)+c for E in E_norm]
-
-#             #When dH is 0 and all other cells melt away, this can give an error. So needs to be a very small number.
-#             if dH[-1]==0:
-#                 dH[-1]=1e-6
-
-#         else:
-#             dH=[1]
-
-
-#         total_diff=pcr.scalar(0.0)
-#         for k in range(len(fs_list)):#np.arange(0.01, 1, 0.01): 
-#             if k!=0:
-#                 glacierShape=temp_volume>0
-#                 volume=temp_volume
-
-#                 assert abs((1-fs_list[k-1]/100)*M-pcr.cellvalue(pcr.maptotal(pcr.scalar(volume)),1)[0]) <= 1e-2
-
-#             glacierElev=pcr.ifthenelse(glacierShape, self.highResolutionDEM, np.nan)
-
-#             d=[]
-#             for j, elev in enumerate(elevs):
-#                 area_dH=pcr.cellvalue(pcr.maptotal(pcr.scalar(pcr.pcrand(glacierElev>=float(elev), glacierElev<float(elev)+100))),1)[0]*dH[j]
-#                 d+=[area_dH]
-
-#             Mnew=np.sum(d)
-
-
-
-#             if k!=0:
-#                 #Every time remove the same amount of the mass from the glacier
-#                 fs=(fs_list[1]*1e-2*M)/Mnew
-#             else:
-#                 fs=0
-#             #print('fs: '+str(fs))
-
-#             fs_map=pcr.readmap("/hyclimm/gjanzing/data/glacierShape_minus"+str(int(fs_list[k])).zfill(2)+"M.map")            
-
-#             temp_volume=volume
-#             for j, elev in enumerate(elevs):
-#                 temp_volume=pcr.ifthenelse(pcr.pcrand(glacierElev>=float(elev), glacierElev<(float(elev)+100)), temp_volume-fs*dH[j], temp_volume)
-
-#             #print('fs*dH: '+str(fs*np.sum(dH)))
-#             total_diff=pcr.ifthenelse(temp_volume<0.0, -1*temp_volume, 0.0)
-#             too_much_melt=pcr.cellvalue(pcr.maptotal(pcr.scalar(total_diff)),1)[0]
-#             temp_volume=pcr.ifthenelse(temp_volume<0.0, 0.0, temp_volume)
-#             #print('TMM: '+str(too_much_melt))
-
-
-#             #------FIXING WHEN THERE IS TOO MUCH MELT.....---------------------
-#             rounds=0
-#             while too_much_melt>=1e-2 or rounds==5:
-#                 #print('Fixing: '+str(rounds))
-#                 glacierShape=temp_volume>0
-
-#                 glacierElev=pcr.ifthenelse(glacierShape, self.highResolutionDEM, np.nan)
-#                 mn_elev = pcr.cellvalue(pcr.mapminimum(glacierElev),1)[0]
-#                 mx_elev = pcr.cellvalue(pcr.mapmaximum(glacierElev),1)[0]
-#                 elevs=np.arange(int(np.round(mn_elev-50, -2)), int(np.round(mx_elev+50, -2)), 100)
-
-#                 d=[]
-#                 for j, elev in enumerate(elevs):
-#                     area_dH=pcr.cellvalue(pcr.maptotal(pcr.scalar(pcr.pcrand(glacierElev>=float(elev), glacierElev<float(elev)+100))),1)[0]*dH[j]
-#                     d+=[area_dH]
-
-#                 Mnew=np.sum(d)
-#                 fs=too_much_melt/Mnew
-
-#                 for j, elev in enumerate(elevs):
-#                     temp_volume=pcr.ifthenelse(pcr.pcrand(glacierElev>=float(elev), glacierElev<(float(elev)+100)), temp_volume-fs*dH[j], temp_volume)
-
-#                 total_diff=pcr.ifthenelse(temp_volume<0.0, -1*temp_volume, 0.0)
-#                 too_much_melt=pcr.cellvalue(pcr.maptotal(pcr.scalar(total_diff)),1)[0]
-#                 temp_volume=pcr.ifthenelse(temp_volume<0.0, 0.0, temp_volume)
-#                 rounds+=1
-
-#             if rounds==5:
-#                 logger.info('ERROR----WOW NOT STABILISED YET!!!----ERROR-----ERROR----ERROR---')
-
-#             fs_map=fs_map+temp_volume
-#             pcr.report(fs_map,"/hyclimm/gjanzing/data/glacierShape_minus"+str(int(fs_list[k])).zfill(2)+"M.map")
