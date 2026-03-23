@@ -1,0 +1,29 @@
+[project]
+name = "pcr-globwb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "netcdf4>=1.7.3",
+    "numpy>=2.2.6",
+    "python-dateutil>=2.9.0.post0",
+    "six>=1.17.0",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.38.3",
+    "ruff>=0.15.7",
+]
+
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux'"
+]
+
+[tool.basedpyright]
+executionEnvironments = [
+  { root = "src" }
+]

@@ -60,3 +60,4 @@ docs/_build/
 # PyBuilder
 target/
 test_data_raw/
+.python-version
