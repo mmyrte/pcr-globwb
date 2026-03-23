@@ -34,7 +34,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import virtualOS as vos
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 
 import evaporation.hamonETPFunctions as hamon_et0
 import evaporation.ref_pot_et_penman_monteith as penman_monteith

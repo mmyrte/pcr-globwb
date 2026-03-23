@@ -32,16 +32,16 @@ import pcraster as pcr
 from pcraster.framework import DynamicModel
 from pcraster.framework import DynamicFramework
 
-from configuration_for_modflow import Configuration
-from currTimeStep import ModelTime
+from pcrglobwb.configuration_for_modflow import Configuration
+from pcrglobwb.currTimeStep import ModelTime
 
 try:
-    from reporting_for_modflow import Reporting
+    from pcrglobwb.reporting_for_modflow import Reporting
 except:
     pass
 
 try:
-    from modflow import ModflowCoupling
+    from pcrglobwb.modflow import ModflowCoupling
 except:
     pass
 

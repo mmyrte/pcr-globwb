@@ -30,7 +30,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 
 # --------CHANGED BY JOREN: START---------------------------------------------------
 import glaciers as gl

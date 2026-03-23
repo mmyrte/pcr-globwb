@@ -38,7 +38,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import virtualOS as vos
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 
 import waterBodies
 
@@ -2450,6 +2450,7 @@ class Routing(object):
             )
             #
             # update waterBodyStorage (inflow, storage and outflow)
+            # FIXME why assign a new symbol to the same object?
             newStorageAtLakeAndReservoirs = storageAtLakeAndReservoirs
             self.WaterBodies.update(
                 newStorageAtLakeAndReservoirs,

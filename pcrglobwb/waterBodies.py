@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 import virtualOS as vos
+from pcrglobwb.ncConverter import *
 
 
 class WaterBodies(object):

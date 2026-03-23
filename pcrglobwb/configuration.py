@@ -27,7 +27,7 @@ from __future__ import print_function
 import optparse
 import os
 import sys
-import virtualOS as vos
+import pcrglobwb.virtualOS as vos
 import time
 import datetime
 import shutil
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 from six.moves.configparser import RawConfigParser as ConfigParser
 
-import disclaimer
+import pcrglobwb.disclaimer as disclaimer
 
 
 class Configuration(object):
@@ -442,7 +442,7 @@ class Configuration(object):
             logger.warning(
                 'The "routingMethod" is not defined in the "routingOptions" of the configuration file. "accuTravelTime" is used in this run.'
             )
-            iniItems.routingOptions["routingMethod"] = "accuTravelTime"
+            self.routingOptions["routingMethod"] = "accuTravelTime"
 
         # adjustment for option 'limitRegionalAnnualGroundwaterAbstraction'
         if "pumpingCapacityNC" not in list(self.groundwaterOptions.keys()):

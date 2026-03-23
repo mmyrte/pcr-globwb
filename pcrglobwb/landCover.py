@@ -33,7 +33,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import virtualOS as vos
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 
 # %% ADDED BY JOREN: START
 import numpy as np
@@ -681,8 +681,9 @@ class LandCover(object):
 
             extrapolate = True
             if (
-                "noParameterExtrapolation" in iniItems.landSurfaceOptions.keys()
-                and iniItems.landSurfaceOptions["noParameterExtrapolation"] == "True"
+                "noParameterExtrapolation" in self.iniItems.landSurfaceOptions.keys()
+                and self.iniItems.landSurfaceOptions["noParameterExtrapolation"]
+                == "True"
             ):
                 extrapolate = False
 

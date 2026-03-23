@@ -33,7 +33,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import virtualOS as vos
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 
 # %% ADDED BY JOREN: START
 import numpy as np

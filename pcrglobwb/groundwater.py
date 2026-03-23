@@ -35,7 +35,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import virtualOS as vos
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 
 
 class Groundwater(object):

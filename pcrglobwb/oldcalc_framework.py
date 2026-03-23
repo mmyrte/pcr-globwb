@@ -32,7 +32,7 @@ import datetime
 import pcraster as pcr
 from pcraster.framework import DynamicModel
 
-from ncConverter import *
+from pcrglobwb.ncConverter import *
 import virtualOS as vos
 
 import variable_list as varDicts
