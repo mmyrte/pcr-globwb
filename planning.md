@@ -11,6 +11,12 @@ Modernize the `pcr-globwb` hydrological model (specifically targeting a Switzerl
 3. **Robust Test Infrastructure:** Establish an automated testing suite (golden master tests) using a representative slice of the real-world NetCDF input data (`PCRInput_CH`). Floating-point tolerance is acceptable as long as it does not add up to significant differences due to error propagation.
 4. **Computational Refactoring:** Decouple the core logic from `pcraster` and migrate to a modern, vectorized framework.
 
+## Working Style
+
+Ask the user for clarification if specifications are ambiguous.
+Do not commit changes by yourself; give the user the option to intervene.
+Intermediary steps and progress should be written/edited in this file.
+
 ---
 
 ## Progress Tracker & Execution Plan
