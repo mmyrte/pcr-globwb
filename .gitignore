@@ -61,3 +61,6 @@ docs/_build/
 target/
 test_data_raw/
 .python-version
+# pixi environments
+.pixi/*
+!.pixi/config.toml

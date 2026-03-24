@@ -17,13 +17,24 @@ dev = [
     "ruff>=0.15.7",
 ]
 
-[tool.uv]
-environments = [
-    "sys_platform == 'darwin'",
-    "sys_platform == 'linux'"
-]
 
 [tool.basedpyright]
 executionEnvironments = [
   { root = "src" }
 ]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+pcr-globwb = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+pcraster = ">=4.4.2,<5"
