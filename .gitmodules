@@ -1,0 +1,3 @@
+[submodule "pcraster"]
+	path = vendor/pcraster
+	url = https://github.com/pcraster/pcraster/
