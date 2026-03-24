@@ -7,7 +7,7 @@ Modernize the `pcr-globwb` hydrological model (specifically targeting a Switzerl
 ## Specific Goals
 
 1. **Codebase Triage & Cleanup:** Identify the primary execution entrypoints and eliminate dead code, stale files, and redundant configuration files (retaining one well-annotated example).
-2. **Project Modernization:** Restructure the repository into a standard Python package using `uv` for environment management, `pyproject.toml` for dependencies, and `ruff`/`basedpyright` for linting and type checking.
+2. **Project Modernization:** Restructure the repository into a standard Python package using `pixi` for environment management, `pyproject.toml` for dependencies, and `ruff`/`basedpyright` for linting and type checking.
 3. **Robust Test Infrastructure:** Establish an automated testing suite (golden master tests) using a representative slice of the real-world NetCDF input data (`PCRInput_CH`). Floating-point tolerance is acceptable as long as it does not add up to significant differences due to error propagation.
 4. **Computational Refactoring:** Decouple the core logic from `pcraster` and migrate to a modern, vectorized framework.
 
@@ -16,6 +16,13 @@ Modernize the `pcr-globwb` hydrological model (specifically targeting a Switzerl
 Ask the user for clarification if specifications are ambiguous.
 Do not commit changes by yourself; give the user the option to intervene.
 Intermediary steps and progress should be written/edited in this file.
+
+---
+
+## Technical Notes & Discoveries
+
+- **Environment & Dependencies:** We are using `pixi` because `pcraster` is distributed via `conda-forge` and is not easily buildable via standard PyPI tools due to its complex C++ dependencies. `pixi` allows us to natively manage a conda environment using `pyproject.toml`.
+- **Type Checking & Legacy Code:** The legacy `pcraster` library lacks native Python type stubs. We cloned the `pcraster` source into `vendor/pcraster` for reference and generated `.pyi` stubs in `typings/` using `basedpyright --createstub pcraster`. This allows for strict type-checking and autocompletion during refactoring.
 
 ---
 
@@ -105,9 +112,9 @@ pcr.ycoordinate
 
 ### Phase 2: Packaging & Modernization
 
-- [ ] **T2.1:** Use `uv` for local virtual environment management and create a `pyproject.toml`.
-- [ ] **T2.2:** Reorganize the code into a standard Python layout (e.g., `src/pcr_globwb/`).
-- [ ] **T2.3:** Introduce and enforce basic linting, formatting, and type-checking using `ruff` and `basedpyright`.
+- [x] **T2.1:** Use `pixi` for local virtual environment management and create a `pyproject.toml`.
+- [x] **T2.2:** Reorganize the code into a standard Python layout (e.g., `src/pcr_globwb/`).
+- [x] **T2.3:** Introduce and enforce basic linting, formatting, and type-checking using `ruff` and `basedpyright`.
 
 ### Phase 3: Test Data Preparation & Golden Testing
 
